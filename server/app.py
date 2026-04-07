@@ -31,7 +31,7 @@ except Exception as e:
 try:
     from ..models import SupportAction, SupportObservation
     from .Customer_Support_Gym_2_environment import SupportEnvironment
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     from models import SupportAction, SupportObservation
     from server.Customer_Support_Gym_2_environment import SupportEnvironment
 
