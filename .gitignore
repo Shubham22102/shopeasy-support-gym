@@ -40,3 +40,4 @@ htmlcov/
 # ── HuggingFace push artifacts ───────────────────────────────
 .openenv_push_cache/
 *.pdf
+server.log

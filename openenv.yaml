@@ -16,108 +16,84 @@ tasks:
   - id: simple_refund
     description: "Easy: Customer wants a refund within the return window."
     difficulty: easy
-    grader: grader:grade_simple_refund
     graders:
-      - grader: grader:grade_simple_refund
       - path: reward/grader.py
         name: TaskGrader
 
   - id: delivery_tracking
     description: "Easy: Customer asks where their order is."
     difficulty: easy
-    grader: grader:grade_delivery_tracking
     graders:
-      - grader: grader:grade_delivery_tracking
       - path: reward/grader.py
         name: TaskGrader
 
   - id: kb_policy_question
     description: "Easy: Customer asks about return policy."
     difficulty: easy
-    grader: grader:grade_kb_policy_question
     graders:
-      - grader: grader:grade_kb_policy_question
       - path: reward/grader.py
         name: TaskGrader
 
   - id: cancellation_request
     description: "Easy: Customer wants to cancel a pending order."
     difficulty: easy
-    grader: grader:grade_cancellation_request
     graders:
-      - grader: grader:grade_cancellation_request
       - path: reward/grader.py
         name: TaskGrader
 
   - id: expired_return
     description: "Medium: Return request outside the policy window."
     difficulty: medium
-    grader: grader:grade_expired_return
     graders:
-      - grader: grader:grade_expired_return
       - path: reward/grader.py
         name: TaskGrader
 
   - id: wrong_item_sent
     description: "Medium: Customer received incorrect product."
     difficulty: medium
-    grader: grader:grade_wrong_item_sent
     graders:
-      - grader: grader:grade_wrong_item_sent
       - path: reward/grader.py
         name: TaskGrader
 
   - id: duplicate_charge
     description: "Medium: Customer was charged twice."
     difficulty: medium
-    grader: grader:grade_duplicate_charge
     graders:
-      - grader: grader:grade_duplicate_charge
       - path: reward/grader.py
         name: TaskGrader
 
   - id: partial_order
     description: "Medium: Customer only received part of their order."
     difficulty: medium
-    grader: grader:grade_partial_order
     graders:
-      - grader: grader:grade_partial_order
       - path: reward/grader.py
         name: TaskGrader
 
   - id: damaged_item
     description: "Hard: Item arrived broken — instant refund policy applies."
     difficulty: hard
-    grader: grader:grade_damaged_item
     graders:
-      - grader: grader:grade_damaged_item
       - path: reward/grader.py
         name: TaskGrader
 
   - id: angry_customer
     description: "Hard: Extremely angry customer, agent must de-escalate."
     difficulty: hard
-    grader: grader:grade_angry_customer
     graders:
-      - grader: grader:grade_angry_customer
       - path: reward/grader.py
         name: TaskGrader
 
   - id: fraud_risk
     description: "Hard: Suspicious request must be escalated, not refunded."
     difficulty: hard
-    grader: grader:grade_fraud_risk
     graders:
-      - grader: grader:grade_fraud_risk
       - path: reward/grader.py
         name: TaskGrader
 
   - id: vip_warranty_claim
     description: "Hard: VIP customer warranty claim for electronics."
     difficulty: hard
-    grader: grader:grade_vip_warranty_claim
     graders:
-      - grader: grader:grade_vip_warranty_claim
       - path: reward/grader.py
         name: TaskGrader
 
