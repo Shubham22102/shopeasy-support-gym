@@ -136,6 +136,13 @@ class GradeReport:
 
 _policy = RefundPolicyEngine()
 _reward_calc = RewardCalculator()
+STRICT_SCORE_MIN = 0.001
+STRICT_SCORE_MAX = 0.999
+
+
+def _strict_unit_score(score: float) -> float:
+    """Clamp scores to the open interval (0, 1) for hackathon validation."""
+    return min(STRICT_SCORE_MAX, max(STRICT_SCORE_MIN, float(score)))
 
 
 # ---------------------------------------------------------------------------
@@ -712,6 +719,9 @@ class GraderResult:
     passed: bool  # score >= 0.4
     feedback: str  # human-readable explanation of the score
 
+    def __post_init__(self) -> None:
+        self.score = _strict_unit_score(self.score)
+
 
 class SupportTaskGrader:
     """
@@ -763,14 +773,15 @@ class SupportTaskGrader:
     def grade(
         self,
         task_id: str,
-        verified_facts: Dict[str, Any],
-        conversation_history: list,
-        final_resolution: str,
+        verified_facts: Optional[Dict[str, Any]] = None,
+        conversation_history: Optional[list] = None,
+        final_resolution: Optional[str] = None,
         order: Optional[Dict[str, Any]] = None,
         step_count: int = 0,
         max_steps: int = 20,
         customer_mood: float = 0.0,
         agent_sent_messages: bool = True,
+        **kwargs: Any,
     ) -> GraderResult:
         """
         Grade a completed episode.  Returns GraderResult(score, passed, feedback).
@@ -778,6 +789,25 @@ class SupportTaskGrader:
         score is the canonical 3-tier reward total (same formula as the env).
         Per-task binary checks are also run and any critical failures zero the score.
         """
+        verified_facts = verified_facts or kwargs.get("facts") or {}
+        conversation_history = (
+            conversation_history or kwargs.get("history") or kwargs.get("trajectory") or []
+        )
+        final_resolution = (
+            final_resolution
+            or kwargs.get("close_resolution")
+            or kwargs.get("resolution")
+            or kwargs.get("final_status")
+            or "unresolved"
+        )
+        order = order or kwargs.get("episode_order") or {}
+        step_count = int(kwargs.get("steps", step_count))
+        max_steps = int(kwargs.get("episode_max_steps", max_steps))
+        customer_mood = float(kwargs.get("mood", customer_mood))
+        agent_sent_messages = bool(
+            kwargs.get("sent_messages", agent_sent_messages)
+        )
+
         facts = {k: v for k, v in verified_facts.items() if not k.startswith("_ir_")}
         ord_ = order or {}
 
@@ -806,7 +836,7 @@ class SupportTaskGrader:
                 ),
             )
 
-        score = min(1.0, max(0.0, report.r_total))
+        score = _strict_unit_score(report.r_total)
         passed = score >= 0.4
 
         # Build human-readable feedback from binary checks
@@ -1061,6 +1091,114 @@ class SupportTaskGrader:
         return GraderResult(
             score=score, passed=score >= 0.4, feedback=" | ".join(checks)
         )
+
+
+# ---------------------------------------------------------------------------
+# Flexible task-level grader entry points
+# ---------------------------------------------------------------------------
+
+
+def grade_task(task_id: str, **kwargs: Any) -> GraderResult:
+    """Grade a task with tolerant kwargs for external validators."""
+    grader = SupportTaskGrader()
+    evidence = kwargs.pop("episode_evidence", None) or kwargs.pop("evidence", None)
+    if isinstance(evidence, dict):
+        merged = dict(evidence)
+        merged.update(kwargs)
+        kwargs = merged
+
+    return grader.grade(
+        task_id=task_id,
+        verified_facts=kwargs.pop("verified_facts", None),
+        conversation_history=kwargs.pop("conversation_history", None),
+        final_resolution=kwargs.pop("final_resolution", None),
+        order=kwargs.pop("order", None),
+        step_count=int(kwargs.pop("step_count", 0)),
+        max_steps=int(kwargs.pop("max_steps", 20)),
+        customer_mood=float(kwargs.pop("customer_mood", 0.0)),
+        agent_sent_messages=bool(kwargs.pop("agent_sent_messages", True)),
+        **kwargs,
+    )
+
+
+def grade_simple_refund(**kwargs: Any) -> GraderResult:
+    return grade_task("simple_refund", **kwargs)
+
+
+def grade_delivery_tracking(**kwargs: Any) -> GraderResult:
+    return grade_task("delivery_tracking", **kwargs)
+
+
+def grade_kb_policy_question(**kwargs: Any) -> GraderResult:
+    return grade_task("kb_policy_question", **kwargs)
+
+
+def grade_cancellation_request(**kwargs: Any) -> GraderResult:
+    return grade_task("cancellation_request", **kwargs)
+
+
+def grade_expired_return(**kwargs: Any) -> GraderResult:
+    return grade_task("expired_return", **kwargs)
+
+
+def grade_wrong_item_sent(**kwargs: Any) -> GraderResult:
+    return grade_task("wrong_item_sent", **kwargs)
+
+
+def grade_duplicate_charge(**kwargs: Any) -> GraderResult:
+    return grade_task("duplicate_charge", **kwargs)
+
+
+def grade_partial_order(**kwargs: Any) -> GraderResult:
+    return grade_task("partial_order", **kwargs)
+
+
+def grade_damaged_item(**kwargs: Any) -> GraderResult:
+    return grade_task("damaged_item", **kwargs)
+
+
+def grade_angry_customer(**kwargs: Any) -> GraderResult:
+    return grade_task("angry_customer", **kwargs)
+
+
+def grade_fraud_risk(**kwargs: Any) -> GraderResult:
+    return grade_task("fraud_risk", **kwargs)
+
+
+def grade_vip_warranty_claim(**kwargs: Any) -> GraderResult:
+    return grade_task("vip_warranty_claim", **kwargs)
+
+
+TASK_GRADERS = {
+    "simple_refund": grade_simple_refund,
+    "delivery_tracking": grade_delivery_tracking,
+    "kb_policy_question": grade_kb_policy_question,
+    "cancellation_request": grade_cancellation_request,
+    "expired_return": grade_expired_return,
+    "wrong_item_sent": grade_wrong_item_sent,
+    "duplicate_charge": grade_duplicate_charge,
+    "partial_order": grade_partial_order,
+    "damaged_item": grade_damaged_item,
+    "angry_customer": grade_angry_customer,
+    "fraud_risk": grade_fraud_risk,
+    "vip_warranty_claim": grade_vip_warranty_claim,
+}
+
+# Common discovery aliases for external validators.
+Grader = SupportTaskGrader
+grade = grade_task
+simple_refund_grader = grade_simple_refund
+delivery_tracking_grader = grade_delivery_tracking
+kb_policy_question_grader = grade_kb_policy_question
+cancellation_request_grader = grade_cancellation_request
+expired_return_grader = grade_expired_return
+wrong_item_sent_grader = grade_wrong_item_sent
+duplicate_charge_grader = grade_duplicate_charge
+partial_order_grader = grade_partial_order
+damaged_item_grader = grade_damaged_item
+angry_customer_grader = grade_angry_customer
+fraud_risk_grader = grade_fraud_risk
+vip_warranty_claim_grader = grade_vip_warranty_claim
 
 
 # ---------------------------------------------------------------------------
