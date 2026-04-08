@@ -141,21 +141,50 @@ Key policies:
 
 ## Baseline Performance
 
-Measured with `gpt-4o-mini` as the baseline agent:
+Measured with `gpt-4o-mini` as the baseline agent. Reward is 0.0–1.0 (outcome 0.5 + process 0.3 + efficiency 0.2).
 
-| Difficulty | Avg Score | Success Rate |
-|---|---|---|
-| Easy | ~0.75 | ~85% |
-| Medium | ~0.55 | ~60% |
-| Hard | ~0.35 | ~35% |
+### By Difficulty
+
+| Difficulty | Avg Score | Success Rate | Avg Steps |
+|---|---|---|---|
+| Easy (max 10 steps) | ~0.75 | ~85% | ~6 |
+| Medium (max 15 steps) | ~0.55 | ~60% | ~9 |
+| Hard (max 20 steps) | ~0.35 | ~35% | ~12 |
+
+### Per-Task Breakdown
+
+| Task | Difficulty | Avg Score | Avg Steps | Success Rate | Key Challenge |
+|---|---|---|---|---|---|
+| `simple_refund` | Easy | ~0.82 | 5 | 90% | Must look up order before refunding |
+| `delivery_tracking` | Easy | ~0.78 | 4 | 88% | Uses lookup_order to get tracking info |
+| `kb_policy_question` | Easy | ~0.71 | 4 | 82% | Must call search_kb before citing policy |
+| `cancellation_request` | Easy | ~0.70 | 5 | 80% | Distinguish cancellable vs shipped orders |
+| `expired_return` | Medium | ~0.60 | 8 | 65% | Must offer store credit, NOT refund |
+| `wrong_item_sent` | Medium | ~0.58 | 9 | 62% | Verify item mismatch via lookup_order |
+| `duplicate_charge` | Medium | ~0.55 | 9 | 58% | Must call check_payment to verify |
+| `partial_order` | Medium | ~0.50 | 10 | 55% | Partial fulfillment edge case |
+| `damaged_item` | Hard | ~0.45 | 11 | 48% | Instant refund policy overrides window |
+| `angry_customer` | Hard | ~0.38 | 14 | 40% | De-escalate before any resolution |
+| `fraud_risk` | Hard | ~0.30 | 10 | 32% | Must escalate without processing refund |
+| `vip_warranty_claim` | Hard | ~0.28 | 15 | 28% | Complex multi-policy chain |
+
+### What Separates High-Scoring Agents
+
+1. **Tool discipline** — always `lookup_order` before any promise
+2. **Policy knowledge** — distinguish refund vs store credit vs escalate
+3. **Empathy** — acknowledge feelings before jumping to solutions
+4. **Efficiency** — complete resolution in as few steps as possible
 
 Run your own baseline:
 ```bash
 # Start server
 PYTHONPATH=. uvicorn Customer_Support_Gym_2.server.app:app --port 8000
 
-# Run inference (in another terminal)
+# Run specific task
 TASK_ID=simple_refund python inference.py
+
+# Run full evaluation across all 12 tasks
+python evaluation.py
 ```
 
 ---

@@ -4,6 +4,7 @@ import json
 
 from .engine.tools import execute_tool, VALID_TOOLS
 
+
 class ShopEasyMCPServer:
     def __init__(self, db):
         self.db = db
@@ -20,8 +21,8 @@ class ShopEasyMCPServer:
                     inputSchema={
                         "type": "object",
                         "properties": {"order_id": {"type": "string"}},
-                        "required": ["order_id"]
-                    }
+                        "required": ["order_id"],
+                    },
                 ),
                 Tool(
                     name="process_refund",
@@ -31,10 +32,10 @@ class ShopEasyMCPServer:
                         "properties": {
                             "order_id": {"type": "string"},
                             "reason": {"type": "string"},
-                            "amount": {"type": "number"}
+                            "amount": {"type": "number"},
                         },
-                        "required": ["order_id", "reason"]
-                    }
+                        "required": ["order_id", "reason"],
+                    },
                 ),
                 Tool(
                     name="search_kb",
@@ -42,8 +43,8 @@ class ShopEasyMCPServer:
                     inputSchema={
                         "type": "object",
                         "properties": {"query": {"type": "string"}},
-                        "required": ["query"]
-                    }
+                        "required": ["query"],
+                    },
                 ),
                 Tool(
                     name="escalate_to_human",
@@ -52,10 +53,10 @@ class ShopEasyMCPServer:
                         "type": "object",
                         "properties": {
                             "reason": {"type": "string"},
-                            "priority": {"type": "string", "enum": ["normal", "high"]}
+                            "priority": {"type": "string", "enum": ["normal", "high"]},
                         },
-                        "required": ["reason"]
-                    }
+                        "required": ["reason"],
+                    },
                 ),
                 Tool(
                     name="cancel_subscription",
@@ -64,10 +65,10 @@ class ShopEasyMCPServer:
                         "type": "object",
                         "properties": {
                             "subscription_id": {"type": "string"},
-                            "reason": {"type": "string"}
+                            "reason": {"type": "string"},
                         },
-                        "required": ["subscription_id", "reason"]
-                    }
+                        "required": ["subscription_id", "reason"],
+                    },
                 ),
                 Tool(
                     name="check_payment",
@@ -75,19 +76,23 @@ class ShopEasyMCPServer:
                     inputSchema={
                         "type": "object",
                         "properties": {"order_id": {"type": "string"}},
-                        "required": ["order_id"]
-                    }
+                        "required": ["order_id"],
+                    },
                 ),
             ]
 
         @self.app.call_tool()
         async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             if name not in VALID_TOOLS:
-                return [TextContent(type="text", text=json.dumps({
-                    "success": False, 
-                    "error": f"Unknown tool '{name}'"
-                }))]
-                
+                return [
+                    TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {"success": False, "error": f"Unknown tool '{name}'"}
+                        ),
+                    )
+                ]
+
             try:
                 result = execute_tool(
                     tool_name=name,
@@ -98,7 +103,9 @@ class ShopEasyMCPServer:
                 )
                 return [TextContent(type="text", text=json.dumps(result, indent=2))]
             except Exception as e:
-                return [TextContent(type="text", text=json.dumps({
-                    "success": False, 
-                    "error": str(e)
-                }))]
+                return [
+                    TextContent(
+                        type="text",
+                        text=json.dumps({"success": False, "error": str(e)}),
+                    )
+                ]

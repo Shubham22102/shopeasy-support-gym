@@ -1,4 +1,5 @@
 """ShopEasy Customer Support Resolution Gym — data package."""
+
 from .orders import OrderDatabase
 from .scenarios import SCENARIOS, SCENARIO_BY_ID, get_scenario
 from .customers import CustomerPersona, make_persona_for_scenario

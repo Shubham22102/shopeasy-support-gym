@@ -7,7 +7,7 @@ the agent must simultaneously solve the problem AND manage the customer.
 """
 
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +119,7 @@ MOOD_RESPONSES = {
     "satisfied": _SATISFIED_RESPONSES,
 }
 
+
 # Mood label thresholds (mood is a float -1.0 to +1.0)
 def _mood_label(mood_value: float) -> str:
     if mood_value >= 0.5:
@@ -134,6 +135,7 @@ def _mood_label(mood_value: float) -> str:
 # ---------------------------------------------------------------------------
 # CustomerPersona
 # ---------------------------------------------------------------------------
+
 
 class CustomerPersona:
     """
@@ -219,7 +221,7 @@ class CustomerPersona:
         self.mood = max(-1.0, self.mood - 0.03)
 
         mood = self.mood_label
-        if wrong_info := (contains_wrong_info):
+        if contains_wrong_info:
             responses = MOOD_RESPONSES[mood]["wrong_info"]
         else:
             responses = MOOD_RESPONSES[mood]["send_message"]
@@ -249,7 +251,9 @@ class CustomerPersona:
         }
 
 
-def make_persona_for_scenario(scenario_task_id: str, customer_name: str, rng: Optional[random.Random] = None) -> CustomerPersona:
+def make_persona_for_scenario(
+    scenario_task_id: str, customer_name: str, rng: Optional[random.Random] = None
+) -> CustomerPersona:
     """
     Create a customer persona with mood/patience tuned to the scenario difficulty.
     """
@@ -275,4 +279,6 @@ def make_persona_for_scenario(scenario_task_id: str, customer_name: str, rng: Op
     # Add slight randomness
     mood += _rng.uniform(-0.1, 0.1)
     mood = max(-1.0, min(1.0, mood))
-    return CustomerPersona(customer_name=customer_name, initial_mood=mood, patience=patience, rng=_rng)
+    return CustomerPersona(
+        customer_name=customer_name, initial_mood=mood, patience=patience, rng=_rng
+    )

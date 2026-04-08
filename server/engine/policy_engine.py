@@ -14,6 +14,7 @@ from typing import Any, Dict, Tuple
 # Policy result type
 # ---------------------------------------------------------------------------
 
+
 class PolicyResult:
     """
     The verdict from evaluating a refund/resolution request against policy.
@@ -42,6 +43,7 @@ class PolicyResult:
 # ---------------------------------------------------------------------------
 # Policy Engine
 # ---------------------------------------------------------------------------
+
 
 class RefundPolicyEngine:
     """
@@ -92,7 +94,10 @@ class RefundPolicyEngine:
 
         # Rule 3: Wrong item scenario (handled by wrong_item flag in reason)
         reason_lower = reason.lower()
-        if any(kw in reason_lower for kw in ("wrong item", "incorrect item", "wrong product")):
+        if any(
+            kw in reason_lower
+            for kw in ("wrong item", "incorrect item", "wrong product")
+        ):
             return PolicyResult(
                 allowed=True,
                 correct_action="full_refund",
@@ -186,7 +191,10 @@ class RefundPolicyEngine:
 
         # Escalating a simple refunable issue without trying = penalty
         if not agent_tried_resolution and issue_type in (
-            "refund_request", "delivery_inquiry", "policy_inquiry", "cancellation"
+            "refund_request",
+            "delivery_inquiry",
+            "policy_inquiry",
+            "cancellation",
         ):
             return PolicyResult(
                 allowed=False,
@@ -276,14 +284,23 @@ class RefundPolicyEngine:
         if facts.get("order_looked_up") and resolution == "resolved":
             return 0.60, "✓ Order status shared and ticket closed"
         if facts.get("refund_processed"):
-            return 0.0, "✗ Penalty: processed refund for a tracking inquiry (unnecessary)"
+            return (
+                0.0,
+                "✗ Penalty: processed refund for a tracking inquiry (unnecessary)",
+            )
         return 0.20, "~ Order looked up but ticket not properly closed"
 
     def _check_expired_return(self, order, facts, resolution) -> Tuple[float, str]:
         if facts.get("refund_processed") and not order.get("within_return_window"):
-            return -0.20, "✗ Penalty: processed full refund outside return window (should offer store credit)"
+            return (
+                -0.20,
+                "✗ Penalty: processed full refund outside return window (should offer store credit)",
+            )
         if facts.get("kb_searched") and not facts.get("refund_processed"):
-            return 0.55, "✓ Correctly offered store credit / denied full refund per policy"
+            return (
+                0.55,
+                "✓ Correctly offered store credit / denied full refund per policy",
+            )
         return 0.20, "~ Partial credit: checked some facts but resolution unclear"
 
     def _check_wrong_item(self, order, facts, resolution) -> Tuple[float, str]:
@@ -295,14 +312,24 @@ class RefundPolicyEngine:
         if facts.get("payment_checked") and facts.get("refund_processed"):
             return 0.60, "✓ Correct: payment verified then refund processed"
         if facts.get("refund_processed") and not facts.get("payment_checked"):
-            return 0.25, "~ Refund issued but payment not verified first (should check_payment first)"
+            return (
+                0.25,
+                "~ Refund issued but payment not verified first (should check_payment first)",
+            )
         return 0.10, "✗ Duplicate charge case not resolved"
 
     def _check_damaged_item(self, order, facts, resolution) -> Tuple[float, str]:
-        if facts.get("refund_processed") and order.get("is_damaged") and resolution == "resolved":
+        if (
+            facts.get("refund_processed")
+            and order.get("is_damaged")
+            and resolution == "resolved"
+        ):
             return 0.65, "✓ Correct: instant refund for damaged item"
         if facts.get("escalated") and not facts.get("refund_processed"):
-            return -0.10, "✗ Penalty: escalated instead of resolving directly (damaged items are agent-resolvable)"
+            return (
+                -0.10,
+                "✗ Penalty: escalated instead of resolving directly (damaged items are agent-resolvable)",
+            )
         return 0.10, "✗ Damaged item not correctly resolved"
 
     def _check_fraud(self, order, facts, resolution) -> Tuple[float, str]:
@@ -313,10 +340,17 @@ class RefundPolicyEngine:
         return 0.0, "✗ Fraud case not correctly handled"
 
     def _check_angry_customer(self, order, facts, resolution) -> Tuple[float, str]:
-        if facts.get("order_looked_up") and resolution == "resolved" and not facts.get("escalated"):
+        if (
+            facts.get("order_looked_up")
+            and resolution == "resolved"
+            and not facts.get("escalated")
+        ):
             return 0.60, "✓ De-escalated and resolved without unnecessary escalation"
         if facts.get("escalated") and not order.get("is_fraud_risk"):
-            return 0.20, "~ Resolved but chose to escalate (slightly penalized for unnecessary escalation)"
+            return (
+                0.20,
+                "~ Resolved but chose to escalate (slightly penalized for unnecessary escalation)",
+            )
         return 0.10, "✗ Angry customer case not resolved"
 
     def _check_vip_warranty(self, order, facts, resolution) -> Tuple[float, str]:
@@ -328,7 +362,11 @@ class RefundPolicyEngine:
         if facts.get("kb_searched"):
             score += 0.20
             parts.append("✓ KB searched for warranty terms")
-        if facts.get("order_looked_up") and order.get("has_warranty") and resolution == "resolved":
+        if (
+            facts.get("order_looked_up")
+            and order.get("has_warranty")
+            and resolution == "resolved"
+        ):
             score += 0.30
             parts.append("✓ Warranty claim resolved")
         return score, " | ".join(parts) if parts else "✗ VIP warranty case not handled"

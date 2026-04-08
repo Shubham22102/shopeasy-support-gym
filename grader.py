@@ -58,11 +58,10 @@ USAGE
 from __future__ import annotations
 
 import json
-import dataclasses
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-from server.engine.policy_engine import RefundPolicyEngine, PolicyResult
+from server.engine.policy_engine import RefundPolicyEngine
 from server.engine.reward import RewardCalculator
 
 
@@ -70,12 +69,14 @@ from server.engine.reward import RewardCalculator
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BinaryResult:
     """Result of one binary / deterministic check."""
+
     check_name: str
     passed: bool
-    score: float          # 1.0 | 0.0  (or a partial weight for weighted checks)
+    score: float  # 1.0 | 0.0  (or a partial weight for weighted checks)
     explanation: str
     severity: str = "info"  # "info" | "warning" | "critical"
 
@@ -87,6 +88,7 @@ class BinaryResult:
 @dataclass
 class GradeReport:
     """Full grading report for one completed episode."""
+
     task_id: str
     binary_checks: List[BinaryResult] = field(default_factory=list)
 
@@ -140,6 +142,7 @@ _reward_calc = RewardCalculator()
 # Individual binary checks
 # ---------------------------------------------------------------------------
 
+
 def check_order_lookup_before_refund(verified_facts: Dict[str, Any]) -> BinaryResult:
     """
     Binary check: Did the agent call lookup_order BEFORE processing a refund?
@@ -149,7 +152,7 @@ def check_order_lookup_before_refund(verified_facts: Dict[str, Any]) -> BinaryRe
     or already-refunded orders.
     """
     refund_attempted = bool(verified_facts.get("refund_processed"))
-    order_looked_up  = bool(verified_facts.get("order_looked_up"))
+    order_looked_up = bool(verified_facts.get("order_looked_up"))
 
     if not refund_attempted:
         # No refund was made — check is N/A but we count it as passing
@@ -197,8 +200,8 @@ def check_fraud_escalated_correctly(
             severity="info",
         )
 
-    escalated       = bool(verified_facts.get("escalated"))
-    refund_issued   = bool(verified_facts.get("refund_processed"))
+    escalated = bool(verified_facts.get("escalated"))
+    refund_issued = bool(verified_facts.get("refund_processed"))
 
     passed = escalated and not refund_issued
 
@@ -215,7 +218,9 @@ def check_fraud_escalated_correctly(
         )
         severity = "warning"
     else:
-        explanation = "✓ Agent correctly escalated fraud-risk order without issuing refund."
+        explanation = (
+            "✓ Agent correctly escalated fraud-risk order without issuing refund."
+        )
         severity = "info"
 
     return BinaryResult(
@@ -254,8 +259,8 @@ def check_refund_amount_correct(
             severity="info",
         )
 
-    agent_amount  = verified_facts.get("refund_amount")      # float or None
-    order_total   = order.get("total", 0.0)                  # correct amount
+    agent_amount = verified_facts.get("refund_amount")  # float or None
+    order_total = order.get("total", 0.0)  # correct amount
 
     # Fraud-risk: any refund amount is wrong
     if order.get("is_fraud_risk"):
@@ -289,8 +294,11 @@ def check_refund_amount_correct(
 
     # Duplicate charge: should refund exactly the order total (one charge)
     if order.get("is_duplicate_charge"):
-        tolerance    = 0.01
-        passed       = agent_amount is not None and abs(float(agent_amount) - order_total) <= tolerance
+        tolerance = 0.01
+        passed = (
+            agent_amount is not None
+            and abs(float(agent_amount) - order_total) <= tolerance
+        )
         return BinaryResult(
             check_name="refund_amount_correct",
             passed=passed,
@@ -299,7 +307,7 @@ def check_refund_amount_correct(
                 f"✓ Refund amount {agent_amount} matches duplicate charge amount {order_total}."
                 if passed
                 else f"✗ Refund amount {agent_amount} does not match expected {order_total} "
-                     f"(duplicate charge should be exactly one payment)."
+                f"(duplicate charge should be exactly one payment)."
             ),
             severity="info" if passed else "warning",
         )
@@ -308,7 +316,9 @@ def check_refund_amount_correct(
     tolerance = 0.01
     if agent_amount is None:
         passed = False
-        explanation = "✗ Refund amount not recorded in verified_facts (refund_amount is None)."
+        explanation = (
+            "✗ Refund amount not recorded in verified_facts (refund_amount is None)."
+        )
         severity = "warning"
     else:
         # Allow slight rounding
@@ -342,7 +352,7 @@ def check_no_refund_on_fraud(
     This duplicates the core of check_fraud_escalated_correctly but focuses
     purely on the refund-prohibition rule (useful as a separate signal).
     """
-    is_fraud      = bool(order.get("is_fraud_risk"))
+    is_fraud = bool(order.get("is_fraud_risk"))
     refund_issued = bool(verified_facts.get("refund_processed"))
 
     if not is_fraud:
@@ -377,7 +387,12 @@ def check_kb_searched_when_required(
 
     Required tasks: expired_return, kb_policy_question, vip_warranty_claim.
     """
-    KB_REQUIRED = {"expired_return", "kb_policy_question", "vip_warranty_claim", "warranty_claim"}
+    KB_REQUIRED = {
+        "expired_return",
+        "kb_policy_question",
+        "vip_warranty_claim",
+        "warranty_claim",
+    }
 
     if task_id not in KB_REQUIRED:
         return BinaryResult(
@@ -418,8 +433,8 @@ def check_payment_verified_before_refund(
             severity="info",
         )
 
-    refund_processed  = bool(verified_facts.get("refund_processed"))
-    payment_checked   = bool(verified_facts.get("payment_checked"))
+    refund_processed = bool(verified_facts.get("refund_processed"))
+    payment_checked = bool(verified_facts.get("payment_checked"))
 
     if not refund_processed:
         return BinaryResult(
@@ -485,6 +500,7 @@ def check_correct_close_code(
 # Full episode grader  (runs all checks + 3-tier reward)
 # ---------------------------------------------------------------------------
 
+
 def grade_episode(episode_evidence: Dict[str, Any]) -> GradeReport:
     """
     Grade a completed episode from its evidence dict.
@@ -502,14 +518,14 @@ def grade_episode(episode_evidence: Dict[str, Any]) -> GradeReport:
 
     Returns GradeReport with binary results + aggregate score.
     """
-    task_id          = episode_evidence.get("task_id", "unknown")
-    order            = episode_evidence.get("order") or {}
-    facts            = episode_evidence.get("verified_facts", {})
+    task_id = episode_evidence.get("task_id", "unknown")
+    order = episode_evidence.get("order") or {}
+    facts = episode_evidence.get("verified_facts", {})
     close_resolution = episode_evidence.get("close_resolution", "unresolved")
-    step_count       = int(episode_evidence.get("step_count", 0))
-    max_steps        = int(episode_evidence.get("max_steps", 20))
-    customer_mood    = float(episode_evidence.get("customer_mood", 0.0))
-    agent_sent_msgs  = bool(episode_evidence.get("agent_sent_messages", True))
+    step_count = int(episode_evidence.get("step_count", 0))
+    max_steps = int(episode_evidence.get("max_steps", 20))
+    customer_mood = float(episode_evidence.get("customer_mood", 0.0))
+    agent_sent_msgs = bool(episode_evidence.get("agent_sent_messages", True))
 
     report = GradeReport(task_id=task_id)
 
@@ -548,10 +564,10 @@ def grade_episode(episode_evidence: Dict[str, Any]) -> GradeReport:
         agent_sent_messages=agent_sent_msgs,
     )
 
-    report.r_outcome    = reward_breakdown["outcome"]
-    report.r_process    = reward_breakdown["process"]
+    report.r_outcome = reward_breakdown["outcome"]
+    report.r_process = reward_breakdown["process"]
     report.r_efficiency = reward_breakdown["efficiency"]
-    report.r_total      = reward_breakdown["total"]
+    report.r_total = reward_breakdown["total"]
 
     return report
 
@@ -559,6 +575,7 @@ def grade_episode(episode_evidence: Dict[str, Any]) -> GradeReport:
 # ---------------------------------------------------------------------------
 # Trajectory grader  (parses raw action list → derives verified_facts)
 # ---------------------------------------------------------------------------
+
 
 def grade_trajectory(
     task_id: str,
@@ -643,6 +660,7 @@ def grade_trajectory(
 # Pretty-printer
 # ---------------------------------------------------------------------------
 
+
 def print_report(report: GradeReport) -> None:
     """Print a well-formatted grading report to stdout."""
     divider = "─" * 60
@@ -657,16 +675,20 @@ def print_report(report: GradeReport) -> None:
 
     print(f"\n  Passed: {report.n_passed}  |  Failed: {report.n_failed}", end="")
     if report.critical_failures:
-        print(f"  |  ⚠️  Critical failures: {', '.join(report.critical_failures)}", end="")
+        print(
+            f"  |  ⚠️  Critical failures: {', '.join(report.critical_failures)}", end=""
+        )
     print()
 
-    print(f"\n  Reward Breakdown")
+    print("\n  Reward Breakdown")
     print("  " + "─" * 56)
     print(f"    R_outcome   = {report.r_outcome:.4f}  (max 0.60)")
     print(f"    R_process   = {report.r_process:.4f}  (max 0.30)")
     print(f"    R_efficiency= {report.r_efficiency:.4f}  (max 0.10)")
-    print(f"    ─────────────────────────────")
-    print(f"    R_total     = {report.r_total:.4f}  {'✔ SUCCESS' if report.r_total >= 0.4 else '✘ FAIL'}")
+    print("    ─────────────────────────────")
+    print(
+        f"    R_total     = {report.r_total:.4f}  {'✔ SUCCESS' if report.r_total >= 0.4 else '✘ FAIL'}"
+    )
     print(divider + "\n")
 
 
@@ -678,15 +700,17 @@ def print_report(report: GradeReport) -> None:
 # SupportTaskGrader — Explicit standalone grader class (Scaler compliance)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class GraderResult:
     """
     Minimal result object returned by SupportTaskGrader.grade().
     Score is always in [0.0, 1.0]; passed = score >= 0.4 (success threshold).
     """
-    score: float          # 0.0 to 1.0
-    passed: bool          # score >= 0.4
-    feedback: str         # human-readable explanation of the score
+
+    score: float  # 0.0 to 1.0
+    passed: bool  # score >= 0.4
+    feedback: str  # human-readable explanation of the score
 
 
 class SupportTaskGrader:
@@ -722,18 +746,18 @@ class SupportTaskGrader:
     # Per-task grading dispatch table -----------------------------------------
 
     _TASK_METHODS = {
-        "simple_refund":       "_grade_simple_refund",
-        "delivery_tracking":   "_grade_delivery_tracking",
-        "kb_policy_question":  "_grade_kb_policy_question",
-        "cancellation_request":"_grade_cancellation_request",
-        "expired_return":      "_grade_expired_return",
-        "wrong_item_sent":     "_grade_wrong_item_sent",
-        "duplicate_charge":    "_grade_duplicate_charge",
-        "partial_order":       "_grade_partial_order",
-        "damaged_item":        "_grade_damaged_item",
-        "angry_customer":      "_grade_angry_customer",
-        "fraud_risk":          "_grade_fraud_risk",
-        "vip_warranty_claim":  "_grade_vip_warranty_claim",
+        "simple_refund": "_grade_simple_refund",
+        "delivery_tracking": "_grade_delivery_tracking",
+        "kb_policy_question": "_grade_kb_policy_question",
+        "cancellation_request": "_grade_cancellation_request",
+        "expired_return": "_grade_expired_return",
+        "wrong_item_sent": "_grade_wrong_item_sent",
+        "duplicate_charge": "_grade_duplicate_charge",
+        "partial_order": "_grade_partial_order",
+        "damaged_item": "_grade_damaged_item",
+        "angry_customer": "_grade_angry_customer",
+        "fraud_risk": "_grade_fraud_risk",
+        "vip_warranty_claim": "_grade_vip_warranty_claim",
     }
 
     def grade(
@@ -755,17 +779,17 @@ class SupportTaskGrader:
         Per-task binary checks are also run and any critical failures zero the score.
         """
         facts = {k: v for k, v in verified_facts.items() if not k.startswith("_ir_")}
-        ord_  = order or {}
+        ord_ = order or {}
 
         evidence: Dict[str, Any] = {
-            "task_id":              task_id,
-            "order":                ord_,
-            "verified_facts":       facts,
-            "close_resolution":     final_resolution,
-            "step_count":           step_count,
-            "max_steps":            max_steps,
-            "customer_mood":        customer_mood,
-            "agent_sent_messages":  agent_sent_messages,
+            "task_id": task_id,
+            "order": ord_,
+            "verified_facts": facts,
+            "close_resolution": final_resolution,
+            "step_count": step_count,
+            "max_steps": max_steps,
+            "customer_mood": customer_mood,
+            "agent_sent_messages": agent_sent_messages,
             "conversation_history": conversation_history,
         }
 
@@ -782,7 +806,7 @@ class SupportTaskGrader:
                 ),
             )
 
-        score  = min(1.0, max(0.0, report.r_total))
+        score = min(1.0, max(0.0, report.r_total))
         passed = score >= 0.4
 
         # Build human-readable feedback from binary checks
@@ -811,37 +835,44 @@ class SupportTaskGrader:
         checks: List[str] = []
         score = 0.0
         if facts.get("order_looked_up"):
-            score += 0.30; checks.append("Order verified ✔")
+            score += 0.30
+            checks.append("Order verified ✔")
         else:
             checks.append("FAIL: Did not verify order")
         if facts.get("refund_processed") and resolution == "resolved":
-            score += 0.50; checks.append("Refund processed correctly ✔")
+            score += 0.50
+            checks.append("Refund processed correctly ✔")
         else:
             checks.append("FAIL: Refund not processed")
         if facts.get("kb_searched"):
-            score += 0.20; checks.append("Policy checked ✔")
+            score += 0.20
+            checks.append("Policy checked ✔")
         score = min(1.0, score)
-        return GraderResult(score=score, passed=score >= 0.4, feedback=" | ".join(checks))
+        return GraderResult(
+            score=score, passed=score >= 0.4, feedback=" | ".join(checks)
+        )
 
     def _grade_fraud_risk(
         self, facts: Dict, order: Dict, resolution: str, base_score: float
     ) -> Optional[GraderResult]:
-        checks: List[str] = []
         if facts.get("refund_processed"):
             return GraderResult(
                 score=0.0,
                 passed=False,
-                feedback="CRITICAL: Processed refund on fraud-risk order — automatic zero."
+                feedback="CRITICAL: Processed refund on fraud-risk order — automatic zero.",
             )
         if facts.get("escalated") and resolution == "escalated":
             return GraderResult(
                 score=1.0,
                 passed=True,
-                feedback="Correctly escalated fraud-risk order without issuing refund ✔"
+                feedback="Correctly escalated fraud-risk order without issuing refund ✔",
             )
         score = 0.1 if facts.get("order_looked_up") else 0.0
-        return GraderResult(score=score, passed=False,
-                            feedback="FAIL: Did not escalate fraud-risk order")
+        return GraderResult(
+            score=score,
+            passed=False,
+            feedback="FAIL: Did not escalate fraud-risk order",
+        )
 
     def _grade_delivery_tracking(
         self, facts: Dict, order: Dict, resolution: str, base_score: float
@@ -849,13 +880,17 @@ class SupportTaskGrader:
         checks: List[str] = []
         score = 0.0
         if facts.get("order_looked_up"):
-            score += 0.60; checks.append("Order status looked up ✔")
+            score += 0.60
+            checks.append("Order status looked up ✔")
         else:
             checks.append("FAIL: Did not look up order")
         if resolution == "resolved":
-            score += 0.40; checks.append("Ticket resolved ✔")
+            score += 0.40
+            checks.append("Ticket resolved ✔")
         score = min(1.0, score)
-        return GraderResult(score=score, passed=score >= 0.4, feedback=" | ".join(checks))
+        return GraderResult(
+            score=score, passed=score >= 0.4, feedback=" | ".join(checks)
+        )
 
     def _grade_kb_policy_question(
         self, facts: Dict, order: Dict, resolution: str, base_score: float
@@ -863,13 +898,17 @@ class SupportTaskGrader:
         score = 0.0
         checks: List[str] = []
         if facts.get("kb_searched"):
-            score += 0.60; checks.append("KB searched ✔")
+            score += 0.60
+            checks.append("KB searched ✔")
         else:
             checks.append("FAIL: KB not searched")
         if resolution == "resolved":
-            score += 0.40; checks.append("Ticket resolved ✔")
+            score += 0.40
+            checks.append("Ticket resolved ✔")
         score = min(1.0, score)
-        return GraderResult(score=score, passed=score >= 0.4, feedback=" | ".join(checks))
+        return GraderResult(
+            score=score, passed=score >= 0.4, feedback=" | ".join(checks)
+        )
 
     def _grade_cancellation_request(
         self, facts: Dict, order: Dict, resolution: str, base_score: float
@@ -877,11 +916,15 @@ class SupportTaskGrader:
         score = 0.0
         checks: List[str] = []
         if facts.get("order_looked_up"):
-            score += 0.30; checks.append("Order checked ✔")
+            score += 0.30
+            checks.append("Order checked ✔")
         if facts.get("subscription_cancelled") or resolution == "resolved":
-            score += 0.50; checks.append("Cancellation handled ✔")
+            score += 0.50
+            checks.append("Cancellation handled ✔")
         score = min(1.0, score)
-        return GraderResult(score=score, passed=score >= 0.4, feedback=" | ".join(checks))
+        return GraderResult(
+            score=score, passed=score >= 0.4, feedback=" | ".join(checks)
+        )
 
     def _grade_expired_return(
         self, facts: Dict, order: Dict, resolution: str, base_score: float
@@ -890,18 +933,23 @@ class SupportTaskGrader:
             return GraderResult(
                 score=0.0,
                 passed=False,
-                feedback="FAIL: Processed cash refund outside return window (should offer store credit)"
+                feedback="FAIL: Processed cash refund outside return window (should offer store credit)",
             )
         score = 0.0
         checks: List[str] = []
         if facts.get("order_looked_up"):
-            score += 0.20; checks.append("Order verified ✔")
+            score += 0.20
+            checks.append("Order verified ✔")
         if facts.get("kb_searched"):
-            score += 0.30; checks.append("Policy checked ✔")
+            score += 0.30
+            checks.append("Policy checked ✔")
         if resolution == "resolved":
-            score += 0.50; checks.append("Properly resolved ✔")
+            score += 0.50
+            checks.append("Properly resolved ✔")
         score = min(1.0, score)
-        return GraderResult(score=score, passed=score >= 0.4, feedback=" | ".join(checks))
+        return GraderResult(
+            score=score, passed=score >= 0.4, feedback=" | ".join(checks)
+        )
 
     def _grade_wrong_item_sent(
         self, facts: Dict, order: Dict, resolution: str, base_score: float
@@ -909,13 +957,18 @@ class SupportTaskGrader:
         score = 0.0
         checks: List[str] = []
         if facts.get("order_looked_up"):
-            score += 0.30; checks.append("Order verified ✔")
+            score += 0.30
+            checks.append("Order verified ✔")
         if facts.get("refund_processed") and resolution == "resolved":
-            score += 0.50; checks.append("Refund/replacement arranged ✔")
+            score += 0.50
+            checks.append("Refund/replacement arranged ✔")
         if facts.get("kb_searched"):
-            score += 0.20; checks.append("Policy checked ✔")
+            score += 0.20
+            checks.append("Policy checked ✔")
         score = min(1.0, score)
-        return GraderResult(score=score, passed=score >= 0.4, feedback=" | ".join(checks))
+        return GraderResult(
+            score=score, passed=score >= 0.4, feedback=" | ".join(checks)
+        )
 
     def _grade_duplicate_charge(
         self, facts: Dict, order: Dict, resolution: str, base_score: float
@@ -923,13 +976,18 @@ class SupportTaskGrader:
         score = 0.0
         checks: List[str] = []
         if facts.get("order_looked_up"):
-            score += 0.20; checks.append("Order verified ✔")
+            score += 0.20
+            checks.append("Order verified ✔")
         if facts.get("payment_checked"):
-            score += 0.30; checks.append("Payment verified ✔")
+            score += 0.30
+            checks.append("Payment verified ✔")
         if facts.get("refund_processed") and resolution == "resolved":
-            score += 0.50; checks.append("Refund processed ✔")
+            score += 0.50
+            checks.append("Refund processed ✔")
         score = min(1.0, score)
-        return GraderResult(score=score, passed=score >= 0.4, feedback=" | ".join(checks))
+        return GraderResult(
+            score=score, passed=score >= 0.4, feedback=" | ".join(checks)
+        )
 
     def _grade_partial_order(
         self, facts: Dict, order: Dict, resolution: str, base_score: float
@@ -937,13 +995,18 @@ class SupportTaskGrader:
         score = 0.0
         checks: List[str] = []
         if facts.get("order_looked_up"):
-            score += 0.30; checks.append("Order verified ✔")
+            score += 0.30
+            checks.append("Order verified ✔")
         if resolution in ("resolved",):
-            score += 0.50; checks.append("Partial delivery addressed ✔")
+            score += 0.50
+            checks.append("Partial delivery addressed ✔")
         if facts.get("kb_searched"):
-            score += 0.20; checks.append("Policy checked ✔")
+            score += 0.20
+            checks.append("Policy checked ✔")
         score = min(1.0, score)
-        return GraderResult(score=score, passed=score >= 0.4, feedback=" | ".join(checks))
+        return GraderResult(
+            score=score, passed=score >= 0.4, feedback=" | ".join(checks)
+        )
 
     def _grade_damaged_item(
         self, facts: Dict, order: Dict, resolution: str, base_score: float
@@ -951,15 +1014,20 @@ class SupportTaskGrader:
         score = 0.0
         checks: List[str] = []
         if facts.get("order_looked_up"):
-            score += 0.20; checks.append("Order verified ✔")
+            score += 0.20
+            checks.append("Order verified ✔")
         if facts.get("refund_processed") and resolution == "resolved":
-            score += 0.60; checks.append("Instant refund issued ✔")
+            score += 0.60
+            checks.append("Instant refund issued ✔")
         else:
             checks.append("FAIL: Instant refund not processed for damaged item")
         if facts.get("kb_searched"):
-            score += 0.20; checks.append("Policy checked ✔")
+            score += 0.20
+            checks.append("Policy checked ✔")
         score = min(1.0, score)
-        return GraderResult(score=score, passed=score >= 0.4, feedback=" | ".join(checks))
+        return GraderResult(
+            score=score, passed=score >= 0.4, feedback=" | ".join(checks)
+        )
 
     def _grade_angry_customer(
         self, facts: Dict, order: Dict, resolution: str, base_score: float
@@ -969,7 +1037,7 @@ class SupportTaskGrader:
             return GraderResult(
                 score=0.0,
                 passed=False,
-                feedback="FAIL: Refund without order lookup on angry_customer"
+                feedback="FAIL: Refund without order lookup on angry_customer",
             )
         return None  # use base_score
 
@@ -979,15 +1047,20 @@ class SupportTaskGrader:
         score = 0.0
         checks: List[str] = []
         if facts.get("order_looked_up"):
-            score += 0.20; checks.append("Order verified ✔")
+            score += 0.20
+            checks.append("Order verified ✔")
         if facts.get("kb_searched"):
-            score += 0.30; checks.append("Warranty policy checked ✔")
+            score += 0.30
+            checks.append("Warranty policy checked ✔")
         if resolution == "resolved":
-            score += 0.50; checks.append("VIP claim resolved ✔")
+            score += 0.50
+            checks.append("VIP claim resolved ✔")
         else:
             checks.append("FAIL: VIP claim not resolved")
         score = min(1.0, score)
-        return GraderResult(score=score, passed=score >= 0.4, feedback=" | ".join(checks))
+        return GraderResult(
+            score=score, passed=score >= 0.4, feedback=" | ".join(checks)
+        )
 
 
 # ---------------------------------------------------------------------------

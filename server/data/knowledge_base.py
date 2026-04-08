@@ -16,7 +16,6 @@ KBArticle = Dict[str, Any]  # {id, title, keywords, content}
 
 
 KB_ARTICLES: List[KBArticle] = [
-
     {
         "id": "KB-001",
         "title": "Return & Refund Policy — Electronics",
@@ -30,7 +29,6 @@ KB_ARTICLES: List[KBArticle] = [
             "No refund is possible after 30 days for any reason except warranty claims."
         ),
     },
-
     {
         "id": "KB-002",
         "title": "Return & Refund Policy — Clothing & Apparel",
@@ -42,7 +40,6 @@ KB_ARTICLES: List[KBArticle] = [
             "Damaged or incorrectly shipped items are eligible for full refund anytime."
         ),
     },
-
     {
         "id": "KB-003",
         "title": "Return & Refund Policy — Home Appliances",
@@ -54,7 +51,6 @@ KB_ARTICLES: List[KBArticle] = [
             "Installation damage is not covered under the return policy."
         ),
     },
-
     {
         "id": "KB-004",
         "title": "Return & Refund Policy — Books",
@@ -66,7 +62,6 @@ KB_ARTICLES: List[KBArticle] = [
             "Damaged books on arrival qualify for a full refund."
         ),
     },
-
     {
         "id": "KB-005",
         "title": "Return & Refund Policy — Sports & Fitness",
@@ -77,7 +72,6 @@ KB_ARTICLES: List[KBArticle] = [
             "Consumables like protein supplements and resistance bands are non-returnable once opened."
         ),
     },
-
     {
         "id": "KB-006",
         "title": "Return & Refund Policy — Beauty & Personal Care",
@@ -88,11 +82,16 @@ KB_ARTICLES: List[KBArticle] = [
             "Once opened, beauty products cannot be returned unless defective."
         ),
     },
-
     {
         "id": "KB-007",
         "title": "Damaged Item Policy",
-        "keywords": ["damaged", "broken", "defective", "arrived damaged", "instant refund"],
+        "keywords": [
+            "damaged",
+            "broken",
+            "defective",
+            "arrived damaged",
+            "instant refund",
+        ],
         "content": (
             "If a customer receives a damaged or defective item, they are entitled to an instant full refund "
             "OR a replacement, regardless of the return window for their product category. "
@@ -101,7 +100,6 @@ KB_ARTICLES: List[KBArticle] = [
             "No further approval is required for damaged items — agents are authorized to process this directly."
         ),
     },
-
     {
         "id": "KB-008",
         "title": "Wrong Item Received Policy",
@@ -113,11 +111,16 @@ KB_ARTICLES: List[KBArticle] = [
             "Agent should: verify order details, apologize, and process the refund or re-shipment."
         ),
     },
-
     {
         "id": "KB-009",
         "title": "Order Not Received / Lost in Transit",
-        "keywords": ["not received", "lost", "missing", "never arrived", "lost in transit"],
+        "keywords": [
+            "not received",
+            "lost",
+            "missing",
+            "never arrived",
+            "lost in transit",
+        ],
         "content": (
             "If a customer's order shows 'delivered' but was not received: "
             "(1) Wait 2 business days (sometimes packages arrive late after scan). "
@@ -126,11 +129,16 @@ KB_ARTICLES: List[KBArticle] = [
             "If the order status is 'lost_in_transit': issue immediate full refund or free re-shipment."
         ),
     },
-
     {
         "id": "KB-010",
         "title": "Duplicate Charge / Payment Dispute Policy",
-        "keywords": ["duplicate", "charged twice", "double charge", "payment", "billing"],
+        "keywords": [
+            "duplicate",
+            "charged twice",
+            "double charge",
+            "payment",
+            "billing",
+        ],
         "content": (
             "If a customer was charged more than once for the same order: "
             "(1) Use the check_payment tool to verify duplicate transactions. "
@@ -139,11 +147,16 @@ KB_ARTICLES: List[KBArticle] = [
             "Do NOT process a refund without verifying the duplicate charge first."
         ),
     },
-
     {
         "id": "KB-011",
         "title": "Warranty Policy — Electronics & Appliances",
-        "keywords": ["warranty", "guarantee", "broken", "stopped working", "malfunction"],
+        "keywords": [
+            "warranty",
+            "guarantee",
+            "broken",
+            "stopped working",
+            "malfunction",
+        ],
         "content": (
             "Electronics and home appliances come with a 12-month manufacturer warranty from delivery date. "
             "Warranty covers manufacturing defects but NOT: physical damage, water damage, or misuse. "
@@ -151,7 +164,6 @@ KB_ARTICLES: List[KBArticle] = [
             "Warranty claims result in free repair, replacement, or full refund (in that order of preference)."
         ),
     },
-
     {
         "id": "KB-012",
         "title": "Subscription Cancellation Policy",
@@ -164,7 +176,6 @@ KB_ARTICLES: List[KBArticle] = [
             "Use the cancel_subscription tool with the subscription_id."
         ),
     },
-
     {
         "id": "KB-013",
         "title": "VIP Customer (ShopEasy Diamond) Benefits",
@@ -177,7 +188,6 @@ KB_ARTICLES: List[KBArticle] = [
             "Always acknowledge VIP status and thank the customer for their loyalty."
         ),
     },
-
     {
         "id": "KB-014",
         "title": "Fraud Prevention Policy",
@@ -191,7 +201,6 @@ KB_ARTICLES: List[KBArticle] = [
             "Refunds on fraud-risk orders are only approved by the fraud team."
         ),
     },
-
     {
         "id": "KB-015",
         "title": "Store Credit Policy",
@@ -205,11 +214,16 @@ KB_ARTICLES: List[KBArticle] = [
             "It cannot be converted back to cash. Minimum store credit issued: ₹100."
         ),
     },
-
     {
         "id": "KB-016",
         "title": "Shipping Delay Compensation Policy",
-        "keywords": ["delay", "late", "shipping delay", "compensation", "late delivery"],
+        "keywords": [
+            "delay",
+            "late",
+            "shipping delay",
+            "compensation",
+            "late delivery",
+        ],
         "content": (
             "If an order is more than 5 days past its estimated delivery date: "
             "(1) Customer is entitled to a ₹100 shipping refund coupon. "
@@ -218,11 +232,15 @@ KB_ARTICLES: List[KBArticle] = [
             "Agents should acknowledge the delay and share the coupon code."
         ),
     },
-
     {
         "id": "KB-017",
         "title": "How to Process a Refund",
-        "keywords": ["how to refund", "process refund", "initiate refund", "refund steps"],
+        "keywords": [
+            "how to refund",
+            "process refund",
+            "initiate refund",
+            "refund steps",
+        ],
         "content": (
             "To process a refund as an agent: "
             "(1) Always use lookup_order first to verify order details. "
@@ -233,7 +251,6 @@ KB_ARTICLES: List[KBArticle] = [
             "(5) Never promise a refund before verifying the order."
         ),
     },
-
     {
         "id": "KB-018",
         "title": "Escalation Guidelines for Human Agents",
@@ -249,7 +266,6 @@ KB_ARTICLES: List[KBArticle] = [
             "this increases wait time for customers unnecessarily."
         ),
     },
-
     {
         "id": "KB-019",
         "title": "COD (Cash on Delivery) Order Policies",
@@ -262,7 +278,6 @@ KB_ARTICLES: List[KBArticle] = [
             "(4) Damaged COD items follow the standard damaged item policy."
         ),
     },
-
     {
         "id": "KB-020",
         "title": "Customer Complaint Handling — Tone Guide",
@@ -284,6 +299,7 @@ KB_ARTICLES: List[KBArticle] = [
 # ---------------------------------------------------------------------------
 # Search engine (simple keyword matching)
 # ---------------------------------------------------------------------------
+
 
 def search_kb(query: str, top_k: int = 3) -> List[KBArticle]:
     """

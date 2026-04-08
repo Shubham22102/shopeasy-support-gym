@@ -12,7 +12,7 @@ This prevents reward hacking: the agent can't just approve everything
 (would fail R_process) or be verbose (would fail R_efficiency).
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from .policy_engine import RefundPolicyEngine
 
@@ -29,6 +29,7 @@ EFFICIENCY_MAX = 0.10
 # ---------------------------------------------------------------------------
 # Reward Calculator
 # ---------------------------------------------------------------------------
+
 
 class RewardCalculator:
     """
@@ -64,11 +65,18 @@ class RewardCalculator:
             }
         """
         r_outcome = self._compute_outcome(
-            order, scenario_task_id, verified_facts, close_resolution,
-            customer_mood, agent_sent_messages,
+            order,
+            scenario_task_id,
+            verified_facts,
+            close_resolution,
+            customer_mood,
+            agent_sent_messages,
         )
         r_process = self._compute_process(
-            order, scenario_task_id, verified_facts, close_resolution,
+            order,
+            scenario_task_id,
+            verified_facts,
+            close_resolution,
         )
         r_efficiency = self._compute_efficiency(step_count, max_steps)
 
@@ -162,7 +170,10 @@ class RewardCalculator:
 
         # KB searched when it should be
         kb_required_tasks = {
-            "expired_return", "kb_policy_question", "vip_warranty_claim", "warranty_claim"
+            "expired_return",
+            "kb_policy_question",
+            "vip_warranty_claim",
+            "warranty_claim",
         }
         if scenario_task_id in kb_required_tasks:
             if verified_facts.get("kb_searched"):
@@ -186,14 +197,22 @@ class RewardCalculator:
                 score -= 0.05
 
             # Bonus: correctly escalated fraud risk
-            if order.get("is_fraud_risk") and verified_facts.get("escalated") and not verified_facts.get("refund_processed"):
+            if (
+                order.get("is_fraud_risk")
+                and verified_facts.get("escalated")
+                and not verified_facts.get("refund_processed")
+            ):
                 score += 0.15
 
             # Bonus: looked up payment before refunding (duplicate charge)
             if scenario_task_id == "duplicate_charge":
-                if verified_facts.get("payment_checked") and verified_facts.get("refund_processed"):
+                if verified_facts.get("payment_checked") and verified_facts.get(
+                    "refund_processed"
+                ):
                     score += 0.10
-                elif verified_facts.get("refund_processed") and not verified_facts.get("payment_checked"):
+                elif verified_facts.get("refund_processed") and not verified_facts.get(
+                    "payment_checked"
+                ):
                     score -= 0.05  # refunded without verifying
 
         score = max(0.0, min(PROCESS_MAX, score))

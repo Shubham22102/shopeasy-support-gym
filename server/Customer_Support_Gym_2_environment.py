@@ -27,21 +27,17 @@ from openenv.core.env_server.types import State
 try:
     from ..models import SupportAction, SupportObservation
     from .data.customers import CustomerPersona, make_persona_for_scenario
-    from .data.knowledge_base import search_kb
     from .data.orders import OrderDatabase
-    from .data.scenarios import SCENARIO_BY_ID, Scenario, get_scenario
-    from .engine.policy_engine import RefundPolicyEngine
+    from .data.scenarios import Scenario, get_scenario
     from .engine.reward import RewardCalculator
     from .engine.tools import execute_tool
 except ImportError:
-    from models import SupportAction, SupportObservation
-    from server.data.customers import CustomerPersona, make_persona_for_scenario
-    from server.data.knowledge_base import search_kb
-    from server.data.orders import OrderDatabase
-    from server.data.scenarios import SCENARIO_BY_ID, Scenario, get_scenario
-    from server.engine.policy_engine import RefundPolicyEngine
-    from server.engine.reward import RewardCalculator
-    from server.engine.tools import execute_tool
+    from models import SupportAction, SupportObservation  # type: ignore
+    from server.data.customers import CustomerPersona, make_persona_for_scenario  # type: ignore
+    from server.data.orders import OrderDatabase  # type: ignore
+    from server.data.scenarios import Scenario, get_scenario  # type: ignore
+    from server.engine.reward import RewardCalculator  # type: ignore
+    from server.engine.tools import execute_tool  # type: ignore
 
 
 class SupportEnvironment(Environment):
@@ -78,6 +74,9 @@ class SupportEnvironment(Environment):
         self._conversation_history: list = []
         self._agent_sent_messages: bool = False
         self._reward_calc = RewardCalculator()
+        # Loop / stall detection
+        self._last_tool_call: Optional[str] = None  # "tool_name|args_json"
+        self._consecutive_messages: int = 0  # messages without any tool call
 
     # ------------------------------------------------------------------
     # OpenEnv interface: reset
@@ -115,6 +114,8 @@ class SupportEnvironment(Environment):
         self._verified_facts = {}
         self._conversation_history = []
         self._agent_sent_messages = False
+        self._last_tool_call = None
+        self._consecutive_messages = 0
 
         # Pick scenario
         self._scenario = get_scenario(task_id=task_id, difficulty=difficulty)
@@ -145,6 +146,9 @@ class SupportEnvironment(Environment):
         if self._order and self._order.get("items"):
             item_name = self._order["items"][0]["name"]
             opening = opening.replace("{item_name}", item_name)
+
+        if self._order and self._order.get("order_id"):
+            opening += f" [Order ID: {self._order['order_id']}]"
 
         # Customer opens the conversation
         self._conversation_history.append({"role": "customer", "content": opening})
@@ -193,7 +197,6 @@ class SupportEnvironment(Environment):
         customer_response = ""
         done = False
         reward = 0.0  # intermediate reward for this step
-        reward_breakdown = None
 
         # Max steps check
         if step > self._scenario.max_steps:
@@ -204,9 +207,27 @@ class SupportEnvironment(Environment):
         # ------------------------------------------------------------------
 
         if action.action_type == "tool_call":
+            tname = action.tool_name or ""
+            targs = action.tool_args or {}
+
+            # ── Loop detection: penalise repeating the exact same tool call ──
+            import json as _json
+
+            call_fingerprint = f"{tname}|{_json.dumps(targs, sort_keys=True)}"
+            if call_fingerprint == self._last_tool_call:
+                reward -= 0.03  # penalty for exact repeat (loop)
+            self._last_tool_call = call_fingerprint
+            self._consecutive_messages = 0  # reset stall counter on any tool call
+
+            # ── Penalty: refund without first doing lookup_order ──
+            if tname == "process_refund" and not self._verified_facts.get(
+                "order_looked_up"
+            ):
+                reward -= 0.05  # penalise skipping due-diligence step
+
             result = execute_tool(
-                tool_name=action.tool_name or "",
-                tool_args=action.tool_args or {},
+                tool_name=tname,
+                tool_args=targs,
                 db=self._db,
                 verified_facts=self._verified_facts,
                 ticket_id=self._ticket_id,
@@ -215,21 +236,30 @@ class SupportEnvironment(Environment):
                 tool_result = result
 
                 # ── Intermediate rewards for productive first-time tool use ──
-                tname = action.tool_name or ""
-                if tname == "lookup_order" and not self._verified_facts.get("_ir_order_looked_up"):
+                if tname == "lookup_order" and not self._verified_facts.get(
+                    "_ir_order_looked_up"
+                ):
                     reward += 0.05  # reward for first order lookup
                     self._verified_facts["_ir_order_looked_up"] = True
 
-                elif tname == "search_kb" and not self._verified_facts.get("_ir_kb_searched"):
+                elif tname == "search_kb" and not self._verified_facts.get(
+                    "_ir_kb_searched"
+                ):
                     reward += 0.02  # reward for first KB search
                     self._verified_facts["_ir_kb_searched"] = True
 
-                elif tname == "check_payment" and not self._verified_facts.get("_ir_payment_checked"):
+                elif tname == "check_payment" and not self._verified_facts.get(
+                    "_ir_payment_checked"
+                ):
                     reward += 0.02  # reward for verifying payment
                     self._verified_facts["_ir_payment_checked"] = True
 
                 # ── Immediate penalty for fraud refund attempt ──
-                if tname == "process_refund" and self._order and self._order.get("is_fraud_risk"):
+                if (
+                    tname == "process_refund"
+                    and self._order
+                    and self._order.get("is_fraud_risk")
+                ):
                     reward -= 0.10  # immediate penalty for policy violation
                     tool_error = "POLICY_VIOLATION: Cannot process refund on a fraud-risk order — escalate instead."
                     tool_result = None  # override success: treat as error
@@ -241,15 +271,21 @@ class SupportEnvironment(Environment):
             customer_reaction = self._persona.react_to_tool_call()
             if customer_reaction:
                 customer_response = customer_reaction
-                self._conversation_history.append({
-                    "role": "customer", "content": customer_response
-                })
+                self._conversation_history.append(
+                    {"role": "customer", "content": customer_response}
+                )
 
             self._ticket_status = "pending_info"
 
         elif action.action_type == "send_message":
             msg = action.message or ""
             self._agent_sent_messages = True
+            self._consecutive_messages += 1
+            self._last_tool_call = None  # break loop fingerprint on message
+
+            # ── Stall detection: penalise 3+ consecutive messages without any tool call ──
+            if self._consecutive_messages >= 3:
+                reward -= 0.02  # stalling — agent is chatting instead of working
 
             # Add agent message to history
             self._conversation_history.append({"role": "agent", "content": msg})
@@ -269,14 +305,16 @@ class SupportEnvironment(Environment):
                 contains_wrong_info=contains_wrong_info,
                 policy_violated=policy_violated,
             )
-            self._conversation_history.append({
-                "role": "customer", "content": customer_response
-            })
+            self._conversation_history.append(
+                {"role": "customer", "content": customer_response}
+            )
 
             # Check if customer has hung up — immediate penalty
             if self._persona.is_hung_up():
                 reward -= 0.20  # penalty for losing the customer
-                return self._force_terminate(reason="Customer disconnected (mood too low / patience exhausted)")
+                return self._force_terminate(
+                    reason="Customer disconnected (mood too low / patience exhausted)"
+                )
 
         elif action.action_type == "close_ticket":
             resolution = action.resolution or "unresolved"
@@ -291,7 +329,9 @@ class SupportEnvironment(Environment):
         steps_remaining = self._scenario.max_steps - step
 
         # Strip internal tracking keys from public-facing verified_facts
-        public_facts = {k: v for k, v in self._verified_facts.items() if not k.startswith("_ir_")}
+        public_facts = {
+            k: v for k, v in self._verified_facts.items() if not k.startswith("_ir_")
+        }
 
         return SupportObservation(
             done=done,
@@ -346,7 +386,9 @@ class SupportEnvironment(Environment):
         # Customer's final reaction
         was_correct = reward_data["outcome"] >= 0.30
         final_customer_msg = self._persona.react_to_resolution(was_correct=was_correct)
-        self._conversation_history.append({"role": "customer", "content": final_customer_msg})
+        self._conversation_history.append(
+            {"role": "customer", "content": final_customer_msg}
+        )
 
         return SupportObservation(
             done=True,
@@ -384,8 +426,6 @@ class SupportEnvironment(Environment):
             agent_sent_messages=self._agent_sent_messages,
         )
 
-        self._ticket_status = "unresolved"
-
         return SupportObservation(
             done=True,
             reward=reward_data["total"],
@@ -394,7 +434,7 @@ class SupportEnvironment(Environment):
             tool_result=None,
             tool_error=None,
             ticket_id=self._ticket_id,
-            ticket_status="unresolved",
+            ticket_status=self._ticket_status,
             issue_type=self._scenario.issue_type if self._scenario else "",
             task_id=self._scenario.task_id if self._scenario else "",
             difficulty=self._scenario.difficulty if self._scenario else "easy",
@@ -420,7 +460,7 @@ class SupportEnvironment(Environment):
                 return True
 
         # Agent says "fully refund" but order is fraud risk
-        if ("full refund" in msg_lower or "process a refund" in msg_lower):
+        if "full refund" in msg_lower or "process a refund" in msg_lower:
             if facts.get("is_fraud_risk"):
                 return True
 
@@ -435,7 +475,11 @@ class SupportEnvironment(Environment):
 
         # Promised refund on expired return window (should be store credit)
         if "refund" in msg_lower and facts.get("within_return_window") is False:
-            if not facts.get("is_damaged") and self._scenario and self._scenario.task_id == "expired_return":
+            if (
+                not facts.get("is_damaged")
+                and self._scenario
+                and self._scenario.task_id == "expired_return"
+            ):
                 return True
 
         return False

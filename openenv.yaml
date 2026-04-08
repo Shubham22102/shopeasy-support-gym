@@ -1,5 +1,12 @@
 spec_version: 1
 name: shopeasy-support-gym
+version: 1.0.0
+description: |
+  A high-fidelity Customer Support Resolution Gym simulating an e-commerce platform's
+  helpdesk. AI agents handle multi-turn customer conversations, resolve real-world 
+  issues across 12 distinct scenarios, and utilize tools like order lookup, refunds, 
+  and escalations, while managing customer sentiment and fraud risks.
+author: "Shubham Kumar"
 type: space
 runtime: fastapi
 app: server.app:app

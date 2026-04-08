@@ -74,18 +74,43 @@ PRODUCTS = {
 }
 
 CUSTOMER_NAMES = [
-    "Priya Sharma", "Rahul Verma", "Ananya Patel", "Kiran Reddy", "Suresh Nair",
-    "Deepika Menon", "Arjun Gupta", "Sneha Iyer", "Vikram Joshi", "Pooja Agarwal",
-    "Aditya Singh", "Meera Krishnan", "Rohan Mehta", "Kavya Pillai", "Nikhil Tiwari",
-    "Sanya Kapoor", "Harsh Malhotra", "Riya Bose", "Dev Choudhary", "Ishaan Bansal",
-    "Tanvi Saxena", "Ayaan Khan", "Diya Nambiar", "Parth Shah", "Kritika Rao",
-    "Aarav Mishra", "Shruti Bhatt", "Yash Pandey", "Naina Desai", "Kabir Sood",
+    "Priya Sharma",
+    "Rahul Verma",
+    "Ananya Patel",
+    "Kiran Reddy",
+    "Suresh Nair",
+    "Deepika Menon",
+    "Arjun Gupta",
+    "Sneha Iyer",
+    "Vikram Joshi",
+    "Pooja Agarwal",
+    "Aditya Singh",
+    "Meera Krishnan",
+    "Rohan Mehta",
+    "Kavya Pillai",
+    "Nikhil Tiwari",
+    "Sanya Kapoor",
+    "Harsh Malhotra",
+    "Riya Bose",
+    "Dev Choudhary",
+    "Ishaan Bansal",
+    "Tanvi Saxena",
+    "Ayaan Khan",
+    "Diya Nambiar",
+    "Parth Shah",
+    "Kritika Rao",
+    "Aarav Mishra",
+    "Shruti Bhatt",
+    "Yash Pandey",
+    "Naina Desai",
+    "Kabir Sood",
 ]
 
 
 # ---------------------------------------------------------------------------
 # Order generation
 # ---------------------------------------------------------------------------
+
 
 def _random_order(order_num: int, seed_offset: int = 0) -> Dict[str, Any]:
     """Generate one synthetic order deterministically from an index."""
@@ -183,7 +208,7 @@ class OrderDatabase:
     concurrent RL training workers do not interfere with each other.
     """
 
-    __slots__ = ['_orders']  # Reduce per-instance memory overhead
+    __slots__ = ["_orders"]  # Reduce per-instance memory overhead
 
     def __init__(self):
         # Deep copy so mutations in one session don't affect others
@@ -200,7 +225,11 @@ class OrderDatabase:
         return deepcopy(self._orders.get(order_id))
 
     def get_orders_by_customer(self, customer_id: str) -> List[Dict[str, Any]]:
-        return [deepcopy(o) for o in self._orders.values() if o["customer_id"] == customer_id]
+        return [
+            deepcopy(o)
+            for o in self._orders.values()
+            if o["customer_id"] == customer_id
+        ]
 
     def list_order_ids(self) -> List[str]:
         return list(self._orders.keys())
@@ -224,11 +253,19 @@ class OrderDatabase:
         if status is not None:
             candidates = [o for o in candidates if o["status"] == status]
         if category is not None:
-            candidates = [o for o in candidates if any(item["category"] == category for item in o["items"])]
+            candidates = [
+                o
+                for o in candidates
+                if any(item["category"] == category for item in o["items"])
+            ]
         if is_damaged is not None:
             candidates = [o for o in candidates if o["is_damaged"] == is_damaged]
         if within_return_window is not None:
-            candidates = [o for o in candidates if o["within_return_window"] == within_return_window]
+            candidates = [
+                o
+                for o in candidates
+                if o["within_return_window"] == within_return_window
+            ]
         if is_vip is not None:
             candidates = [o for o in candidates if o["is_vip"] == is_vip]
         if is_fraud_risk is not None:
@@ -239,7 +276,9 @@ class OrderDatabase:
             else:
                 candidates = [o for o in candidates if o["subscription_id"] is None]
         if is_duplicate_charge is not None:
-            candidates = [o for o in candidates if o["is_duplicate_charge"] == is_duplicate_charge]
+            candidates = [
+                o for o in candidates if o["is_duplicate_charge"] == is_duplicate_charge
+            ]
         if has_warranty is not None:
             candidates = [o for o in candidates if o["has_warranty"] == has_warranty]
 

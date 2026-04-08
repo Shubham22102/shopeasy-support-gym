@@ -6,7 +6,7 @@ execute_tool() to dispatch a tool_call action to the right handler.
 Tools return structured dicts that become observation.tool_result.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from ..data.knowledge_base import search_kb
 from ..data.orders import OrderDatabase
@@ -48,7 +48,10 @@ def execute_tool(
         On failure, also includes 'error' field with a human-readable message.
     """
     if tool_name not in VALID_TOOLS:
-        return {"success": False, "error": f"Unknown tool '{tool_name}'. Valid tools: {sorted(VALID_TOOLS)}"}
+        return {
+            "success": False,
+            "error": f"Unknown tool '{tool_name}'. Valid tools: {sorted(VALID_TOOLS)}",
+        }
 
     handlers = {
         "lookup_order": _lookup_order,
@@ -65,6 +68,7 @@ def execute_tool(
 # ---------------------------------------------------------------------------
 # Individual tool handlers
 # ---------------------------------------------------------------------------
+
 
 def _lookup_order(
     args: Dict[str, Any],
@@ -84,7 +88,10 @@ def _lookup_order(
 
     order = db.get_order(order_id)
     if order is None:
-        return {"success": False, "error": f"Order '{order_id}' not found in the system."}
+        return {
+            "success": False,
+            "error": f"Order '{order_id}' not found in the system.",
+        }
 
     # Populate verified_facts for reward calculation
     verified_facts["order_id"] = order["order_id"]
@@ -147,7 +154,10 @@ def _process_refund(
         return {"success": False, "error": f"Order '{order_id}' not found."}
 
     if order["refund_issued"]:
-        return {"success": False, "error": f"A refund has already been issued for order '{order_id}'."}
+        return {
+            "success": False,
+            "error": f"A refund has already been issued for order '{order_id}'.",
+        }
 
     # Guard: do NOT allow refund on fraud-risk orders
     if order["is_fraud_risk"]:
@@ -169,14 +179,21 @@ def _process_refund(
 
     success = db.mark_refund_issued(order_id, amount)
     if not success:
-        return {"success": False, "error": "Failed to process refund. Please try again."}
+        return {
+            "success": False,
+            "error": "Failed to process refund. Please try again.",
+        }
 
     # Update verified facts
     verified_facts["refund_processed"] = True
     verified_facts["refund_amount"] = amount
 
     # Determine refund timeline based on payment method
-    timeline = "1-2 business days" if order["payment_method"] in ("UPI", "wallet") else "3-5 business days"
+    timeline = (
+        "1-2 business days"
+        if order["payment_method"] in ("UPI", "wallet")
+        else "3-5 business days"
+    )
 
     return {
         "success": True,
@@ -281,9 +298,15 @@ def _cancel_subscription(
     reason = args.get("reason", "").strip()
 
     if not subscription_id:
-        return {"success": False, "error": "subscription_id is required for cancel_subscription."}
+        return {
+            "success": False,
+            "error": "subscription_id is required for cancel_subscription.",
+        }
     if not reason:
-        return {"success": False, "error": "reason is required for cancel_subscription."}
+        return {
+            "success": False,
+            "error": "reason is required for cancel_subscription.",
+        }
 
     # Verify subscription exists (scan orders for this subscription ID)
     found = any(
@@ -292,7 +315,10 @@ def _cancel_subscription(
         if o
     )
     if not found:
-        return {"success": False, "error": f"Subscription '{subscription_id}' not found."}
+        return {
+            "success": False,
+            "error": f"Subscription '{subscription_id}' not found.",
+        }
 
     verified_facts["subscription_cancelled"] = True
     verified_facts["subscription_id"] = subscription_id

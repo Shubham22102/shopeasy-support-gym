@@ -8,12 +8,14 @@ mirror real-world LLM tool-use APIs (structured JSON actions with args).
 from typing import Any, Dict, List, Literal, Optional
 
 from openenv.core.env_server.types import Action, Observation
-from pydantic import Field
+from pydantic import Field, model_validator
+import json
 
 
 # ---------------------------------------------------------------------------
 # ACTION  — what the agent can do each step
 # ---------------------------------------------------------------------------
+
 
 class SupportAction(Action):
     """
@@ -82,10 +84,23 @@ class SupportAction(Action):
         description="Resolution code for closing the ticket. Required when action_type='close_ticket'.",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def parse_tool_args_string(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            tool_args = data.get("tool_args")
+            if isinstance(tool_args, str):
+                try:
+                    data["tool_args"] = json.loads(tool_args)
+                except json.JSONDecodeError:
+                    pass  # Let Pydantic handle the error natively if it's invalid JSON
+        return data
+
 
 # ---------------------------------------------------------------------------
 # OBSERVATION  — what the agent sees after each step
 # ---------------------------------------------------------------------------
+
 
 class SupportObservation(Observation):
     """
@@ -121,7 +136,9 @@ class SupportObservation(Observation):
         default="",
         description="Unique identifier for this support ticket.",
     )
-    ticket_status: Literal["open", "pending_info", "pending_refund", "resolved", "escalated"] = Field(
+    ticket_status: Literal[
+        "open", "pending_info", "pending_refund", "resolved", "escalated"
+    ] = Field(
         default="open",
         description="Current lifecycle status of the support ticket.",
     )
@@ -162,8 +179,12 @@ class SupportObservation(Observation):
 
     # Episode progress
     step_count: int = Field(default=0, description="Number of steps taken so far.")
-    max_steps: int = Field(default=20, description="Maximum steps allowed for this episode.")
-    steps_remaining: int = Field(default=20, description="Steps remaining before forced termination.")
+    max_steps: int = Field(
+        default=20, description="Maximum steps allowed for this episode."
+    )
+    steps_remaining: int = Field(
+        default=20, description="Steps remaining before forced termination."
+    )
 
     # Reward breakdown (populated on close_ticket or forced termination)
     reward_breakdown: Optional[Dict[str, float]] = Field(

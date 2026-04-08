@@ -6,7 +6,7 @@ customer issue type, difficulty, and required agent behaviors.
 The environment samples one scenario per reset() call.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 
@@ -49,9 +49,7 @@ class Scenario:
 # ---------------------------------------------------------------------------
 
 SCENARIOS: List[Scenario] = [
-
     # ── EASY (1–4) ──────────────────────────────────────────────────────────
-
     Scenario(
         task_id="simple_refund",
         title="Simple Refund Request",
@@ -64,12 +62,20 @@ SCENARIOS: List[Scenario] = [
         ),
         required_tools=["lookup_order", "process_refund"],
         forbidden_actions=[],
-        order_filters={"status": "delivered", "within_return_window": True, "is_damaged": False, "is_fraud_risk": False},
+        order_filters={
+            "status": "delivered",
+            "within_return_window": True,
+            "is_damaged": False,
+            "is_fraud_risk": False,
+        },
         max_steps=10,
         resolution_hint="Verify order is within return window → process full refund → close resolved.",
-        reward_criteria={"correct_refund_issued": 0.5, "policy_checked": 0.3, "efficiency": 0.2},
+        reward_criteria={
+            "correct_refund_issued": 0.5,
+            "policy_checked": 0.3,
+            "efficiency": 0.2,
+        },
     ),
-
     Scenario(
         task_id="delivery_tracking",
         title="Order Status / Tracking Inquiry",
@@ -85,9 +91,12 @@ SCENARIOS: List[Scenario] = [
         order_filters={"status": "shipped"},
         max_steps=8,
         resolution_hint="Lookup order → share shipping status and estimated delivery date → close resolved.",
-        reward_criteria={"accurate_status_shared": 0.6, "no_unnecessary_refund": 0.2, "efficiency": 0.2},
+        reward_criteria={
+            "accurate_status_shared": 0.6,
+            "no_unnecessary_refund": 0.2,
+            "efficiency": 0.2,
+        },
     ),
-
     Scenario(
         task_id="kb_policy_question",
         title="Return Policy Question",
@@ -102,9 +111,12 @@ SCENARIOS: List[Scenario] = [
         order_filters={},
         max_steps=6,
         resolution_hint="Search KB for electronics return policy → share accurate policy → close resolved.",
-        reward_criteria={"kb_searched": 0.4, "accurate_policy_shared": 0.4, "efficiency": 0.2},
+        reward_criteria={
+            "kb_searched": 0.4,
+            "accurate_policy_shared": 0.4,
+            "efficiency": 0.2,
+        },
     ),
-
     Scenario(
         task_id="cancellation_request",
         title="Order Cancellation",
@@ -119,11 +131,13 @@ SCENARIOS: List[Scenario] = [
         order_filters={"status": "pending"},
         max_steps=8,
         resolution_hint="Lookup order → confirm it's cancellable (pending status) → cancel → close resolved.",
-        reward_criteria={"order_verified_before_cancel": 0.4, "correct_cancellation": 0.4, "efficiency": 0.2},
+        reward_criteria={
+            "order_verified_before_cancel": 0.4,
+            "correct_cancellation": 0.4,
+            "efficiency": 0.2,
+        },
     ),
-
     # ── MEDIUM (5–8) ─────────────────────────────────────────────────────────
-
     Scenario(
         task_id="expired_return",
         title="Return Request Past Policy Window",
@@ -138,7 +152,11 @@ SCENARIOS: List[Scenario] = [
         ),
         required_tools=["lookup_order", "search_kb"],
         forbidden_actions=[],
-        order_filters={"status": "delivered", "within_return_window": False, "is_damaged": False},
+        order_filters={
+            "status": "delivered",
+            "within_return_window": False,
+            "is_damaged": False,
+        },
         max_steps=12,
         resolution_hint=(
             "Lookup order → check days since delivery → search KB for expired return policy → "
@@ -151,7 +169,6 @@ SCENARIOS: List[Scenario] = [
             "efficiency": 0.2,
         },
     ),
-
     Scenario(
         task_id="wrong_item_sent",
         title="Wrong Item Received",
@@ -177,7 +194,6 @@ SCENARIOS: List[Scenario] = [
             "efficiency": 0.2,
         },
     ),
-
     Scenario(
         task_id="duplicate_charge",
         title="Duplicate Payment Charge",
@@ -203,7 +219,6 @@ SCENARIOS: List[Scenario] = [
             "efficiency": 0.2,
         },
     ),
-
     Scenario(
         task_id="partial_order",
         title="Partial Order Received",
@@ -229,9 +244,7 @@ SCENARIOS: List[Scenario] = [
             "efficiency": 0.2,
         },
     ),
-
     # ── HARD (9–12) ──────────────────────────────────────────────────────────
-
     Scenario(
         task_id="damaged_item",
         title="Damaged Item Received",
@@ -261,7 +274,6 @@ SCENARIOS: List[Scenario] = [
             "efficiency": 0.2,
         },
     ),
-
     Scenario(
         task_id="angry_customer",
         title="De-escalation: Extremely Angry Customer",
@@ -291,7 +303,6 @@ SCENARIOS: List[Scenario] = [
             "efficiency": 0.2,
         },
     ),
-
     Scenario(
         task_id="fraud_risk",
         title="Potential Fraud: Suspicious Request",
@@ -306,7 +317,9 @@ SCENARIOS: List[Scenario] = [
             "I also never made this purchase — I think my account was hacked."
         ),
         required_tools=["lookup_order", "escalate_to_human"],
-        forbidden_actions=["process_refund"],  # must NOT issue refund on fraud risk, must escalate
+        forbidden_actions=[
+            "process_refund"
+        ],  # must NOT issue refund on fraud risk, must escalate
         order_filters={"is_fraud_risk": True},
         max_steps=15,
         resolution_hint=(
@@ -321,7 +334,6 @@ SCENARIOS: List[Scenario] = [
             "efficiency": 0.1,
         },
     ),
-
     Scenario(
         task_id="vip_warranty_claim",
         title="VIP Customer: Warranty Claim",
@@ -362,7 +374,9 @@ MEDIUM_SCENARIOS = [s for s in SCENARIOS if s.difficulty == "medium"]
 HARD_SCENARIOS = [s for s in SCENARIOS if s.difficulty == "hard"]
 
 
-def get_scenario(task_id: Optional[str] = None, difficulty: Optional[str] = None) -> Scenario:
+def get_scenario(
+    task_id: Optional[str] = None, difficulty: Optional[str] = None
+) -> Scenario:
     """
     Return a scenario by task_id, or randomly pick one matching the given difficulty.
     Falls back to uniform random if neither is specified.
@@ -371,7 +385,9 @@ def get_scenario(task_id: Optional[str] = None, difficulty: Optional[str] = None
 
     if task_id is not None:
         if task_id not in SCENARIO_BY_ID:
-            raise ValueError(f"Unknown task_id '{task_id}'. Available: {list(SCENARIO_BY_ID.keys())}")
+            raise ValueError(
+                f"Unknown task_id '{task_id}'. Available: {list(SCENARIO_BY_ID.keys())}"
+            )
         return SCENARIO_BY_ID[task_id]
 
     if difficulty == "easy":

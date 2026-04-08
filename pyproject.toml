@@ -37,3 +37,9 @@ server = "Customer_Support_Gym_2.server.app:main"
 include-package-data = true
 packages = ["Customer_Support_Gym_2", "Customer_Support_Gym_2.server"]
 package-dir = { "Customer_Support_Gym_2" = ".", "Customer_Support_Gym_2.server" = "server" }
+[tool.pyright]
+include = ["."]
+extraPaths = ["."]
+executionEnvironments = [
+    { root = "." }
+]

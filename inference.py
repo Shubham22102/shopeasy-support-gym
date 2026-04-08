@@ -36,6 +36,7 @@ from typing import Any, Dict, List, Optional
 # ── Load .env FIRST before reading any env vars ────────────────────────────
 try:
     from dotenv import load_dotenv
+
     # load_dotenv() looks for .env in cwd and parents; override=False keeps
     # already-set shell vars untouched (so CI/CD env vars take priority).
     load_dotenv(override=False)
@@ -48,11 +49,7 @@ from openai import OpenAI
 API_BASE_URL: str = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME: str = os.getenv("MODEL_NAME", "gpt-4o-mini")
 # OpenAI key takes priority; fall back to HF_TOKEN for HF inference endpoints
-API_KEY: str = (
-    os.getenv("OPENAI_API_KEY")
-    or os.getenv("HF_TOKEN")
-    or "no-key-set"
-)
+API_KEY: str = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN") or "no-key-set"
 HF_TOKEN: str = os.getenv("HF_TOKEN", "")
 
 # Task selection
@@ -106,18 +103,21 @@ Output ONLY the JSON object. No explanations, no markdown, no extra text.
 
 # ── Logging helpers (mandatory hackathon format — NO extra spaces) ────────
 
+
 def log_start(task: str, env: str, model: str) -> None:
     sys.stdout.write(f"[START]task={task}env={env}model={model}\n")
     sys.stdout.flush()
 
 
-def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+def log_step(
+    step: int, action: str, reward: float, done: bool, error: Optional[str]
+) -> None:
     # CRITICAL: exact 2-decimal reward, no spaces between fields
     reward_str = f"{reward:.2f}"
     done_str = "true" if done else "false"
     error_str = error if error else "null"
     # Remove newlines from action to guarantee single-line output
-    action_clean = action.replace('\n', ' ').replace('\r', '')[:200]
+    action_clean = action.replace("\n", " ").replace("\r", "")[:200]
     sys.stdout.write(
         f"[STEP]step={step}action={action_clean}reward={reward_str}done={done_str}error={error_str}\n"
     )
@@ -128,11 +128,14 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
     success_str = "true" if success else "false"
     # Format all rewards to exactly 2 decimal places, comma-separated, no spaces
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    sys.stdout.write(f"[END]success={success_str}steps={steps}rewards={rewards_str}\n")
+    sys.stdout.write(
+        f"[END]success={success_str}steps={steps}score={score:.3f}rewards={rewards_str}\n"
+    )
     sys.stdout.flush()
 
 
 # ── Observation → LLM prompt ───────────────────────────────────────────────
+
 
 def build_user_prompt(obs_dict: Dict[str, Any]) -> str:
     """Convert a SupportObservation dict into a clear prompt for the LLM."""
@@ -181,6 +184,7 @@ def build_user_prompt(obs_dict: Dict[str, Any]) -> str:
 
 # ── LLM call ──────────────────────────────────────────────────────────────
 
+
 def get_agent_action(
     client: OpenAI,
     obs_dict: Dict[str, Any],
@@ -215,14 +219,20 @@ def get_agent_action(
 
     except json.JSONDecodeError:
         # Model didn't return valid JSON — extract any text and send as message
-        fallback_msg = raw[:300] if raw else "I'm looking into your issue, please hold on."
+        fallback_msg = (
+            raw[:300] if raw else "I'm looking into your issue, please hold on."
+        )
         return {"action_type": "send_message", "message": fallback_msg}
 
     except Exception:
-        return {"action_type": "send_message", "message": "I'm sorry, please give me a moment."}
+        return {
+            "action_type": "send_message",
+            "message": "I'm sorry, please give me a moment.",
+        }
 
 
 # ── Main episode loop ──────────────────────────────────────────────────────
+
 
 def run_episode(env_url: str = "http://localhost:8000") -> None:
     """
@@ -258,7 +268,9 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
     except Exception as exc:
         # Write to stderr so it doesn't pollute the grader's stdout
         sys.stderr.write(f"[ERROR] Failed to connect to env at {env_url}: {exc}\n")
-        sys.stderr.write("[ERROR] Is the server running? Start with: uvicorn server.app:app --port 8000\n")
+        sys.stderr.write(
+            "[ERROR] Is the server running? Start with: uvicorn server.app:app --port 8000\n"
+        )
         sys.exit(1)
 
     obs = reset_data.get("observation", reset_data)
@@ -287,7 +299,9 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
                 step_resp.raise_for_status()
                 step_data = step_resp.json()
             except Exception as exc:
-                log_step(step=step, action=action_str, reward=0.0, done=True, error=str(exc))
+                log_step(
+                    step=step, action=action_str, reward=0.0, done=True, error=str(exc)
+                )
                 break
 
             obs = step_data.get("observation", step_data)
@@ -298,7 +312,9 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
             rewards.append(reward)
             steps_taken = step
 
-            log_step(step=step, action=action_str, reward=reward, done=done, error=error)
+            log_step(
+                step=step, action=action_str, reward=reward, done=done, error=error
+            )
 
             if done:
                 score = reward  # final reward IS the score (0.0–1.0)

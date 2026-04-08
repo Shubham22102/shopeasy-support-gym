@@ -17,6 +17,7 @@ import os
 # Load .env FIRST — reads OPENAI_API_KEY, HF_TOKEN, MAX_CONCURRENT_ENVS, etc.
 try:
     from dotenv import load_dotenv
+
     load_dotenv(override=False)
 except ImportError:
     pass  # In Docker/HF Spaces, vars are injected directly into environment
@@ -24,16 +25,19 @@ except ImportError:
 try:
     from openenv.core.env_server.http_server import create_app
 except Exception as e:
-    raise ImportError(
-        "openenv is required. Install with:\n    uv sync"
-    ) from e
+    raise ImportError("openenv is required. Install with:\n    uv sync") from e
 
 try:
     from ..models import SupportAction, SupportObservation
     from .Customer_Support_Gym_2_environment import SupportEnvironment
 except (ModuleNotFoundError, ImportError):
-    from models import SupportAction, SupportObservation
-    from server.Customer_Support_Gym_2_environment import SupportEnvironment
+    import sys
+    import os
+
+    # Add project root to sys.path so direct execution (`python server/app.py`) works
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from models import SupportAction, SupportObservation  # type: ignore
+    from server.Customer_Support_Gym_2_environment import SupportEnvironment  # type: ignore
 
 # Backward-compat aliases
 CustomerSupportGym2Action = SupportAction
@@ -55,11 +59,13 @@ app = create_app(
 def main(host: str = "0.0.0.0", port: int = 8000):
     """Entry point for direct execution."""
     import uvicorn
+
     uvicorn.run(app, host=host, port=port)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()

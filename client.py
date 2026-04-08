@@ -18,9 +18,7 @@ CustomerSupportGym2Action = SupportAction
 CustomerSupportGym2Observation = SupportObservation
 
 
-class CustomerSupportGym2Env(
-    EnvClient[SupportAction, SupportObservation, State]
-):
+class CustomerSupportGym2Env(EnvClient[SupportAction, SupportObservation, State]):
     """
     Client for the ShopEasy Customer Support Resolution Gym.
 
@@ -68,9 +66,7 @@ class CustomerSupportGym2Env(
             payload["resolution"] = action.resolution or "unresolved"
         return payload
 
-    def _parse_result(
-        self, payload: Dict[str, Any]
-    ) -> StepResult[SupportObservation]:
+    def _parse_result(self, payload: Dict[str, Any]) -> StepResult[SupportObservation]:
         """Parse server JSON response into StepResult[SupportObservation]."""
         obs_data = payload.get("observation", {})
         observation = SupportObservation(
