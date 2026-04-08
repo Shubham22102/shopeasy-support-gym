@@ -15,7 +15,8 @@ Scoring contract
 
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Iterator, Tuple
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -244,16 +245,20 @@ class TaskGrader:
     The score is always strictly inside (0, 1).
     """
 
+    def __init__(self, default_task_id: str | None = None) -> None:
+        self.default_task_id = default_task_id
+
     def grade(
         self,
         task_id: str | None = None,
         world_state: Dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> Tuple[float, Dict[str, Any]]:
+    ) -> "TaskGradeResult":
         state = world_state or {}
 
         task = (
             task_id
+            or self.default_task_id
             or state.get("task_id")
             or state.get("current_task_id")
             or kwargs.get("task_id")
@@ -293,14 +298,39 @@ class TaskGrader:
         )
 
         score = _clamp(raw_score)
-        passed = raw_score >= 0.5
+        passed = score >= 0.5
 
-        return score, {
-            "task_id": task,
-            "passed": passed,
-            "raw_score": raw_score,
-            "feedback": f"Task '{task}' score: {raw_score:.3f} (resolution={resolution})",
+        return TaskGradeResult(
+            score=score,
+            passed=passed,
+            feedback=f"Task '{task}' score: {score:.3f} (resolution={resolution})",
+            task_id=task,
+        )
+
+
+@dataclass
+class TaskGradeResult:
+    """Compatibility result with both attribute access and tuple unpacking."""
+
+    score: float
+    passed: bool
+    feedback: str
+    task_id: str
+
+    def __post_init__(self) -> None:
+        self.score = _clamp(self.score)
+
+    def as_info(self) -> Dict[str, Any]:
+        return {
+            "task_id": self.task_id,
+            "score": self.score,
+            "passed": self.passed,
+            "feedback": self.feedback,
         }
+
+    def __iter__(self) -> Iterator[Any]:
+        yield self.score
+        yield self.as_info()
 
 
 # ---------------------------------------------------------------------------
@@ -325,8 +355,7 @@ TASK_IDS = [
 
 def get_task_graders() -> Dict[str, Any]:
     """Return a per-task grader mapping for validator discovery."""
-    g = TaskGrader()
-    return {tid: g for tid in TASK_IDS}
+    return {tid: TaskGrader(default_task_id=tid) for tid in TASK_IDS}
 
 
 # ---------------------------------------------------------------------------
@@ -340,5 +369,5 @@ def grade(
     task_id: str | None = None,
     world_state: Dict[str, Any] | None = None,
     **kwargs: Any,
-) -> Tuple[float, Dict[str, Any]]:
+) -> TaskGradeResult:
     return _default_grader.grade(task_id=task_id, world_state=world_state, **kwargs)
