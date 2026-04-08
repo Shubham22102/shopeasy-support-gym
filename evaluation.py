@@ -1,11 +1,17 @@
 import os
 import json
 import asyncio
-import requests
 from typing import Any
 
 from server.data.scenarios import SCENARIOS
 from openai import OpenAI
+
+try:
+    from Customer_Support_Gym_2.client import CustomerSupportGym2Env
+    from Customer_Support_Gym_2.models import SupportAction
+except ImportError:
+    from client import CustomerSupportGym2Env  # type: ignore
+    from models import SupportAction  # type: ignore
 
 from inference import get_agent_action
 
@@ -20,45 +26,34 @@ SUCCESS_SCORE_THRESHOLD: float = 0.4
 def run_episode_sync(env_url: str, task_id: str, client: OpenAI) -> float:
     """Synchronous implementation of running an episode."""
     conversation = []
+    with CustomerSupportGym2Env(base_url=env_url).sync() as env:
+        reset_result = env.reset(task_id=task_id)
+        obs = reset_result.observation.model_dump()
+        max_steps = obs.get("max_steps", 20)
 
-    reset_resp = requests.post(
-        f"{env_url}/reset", json={"task_id": task_id}, timeout=15
-    )
-    reset_resp.raise_for_status()
-    reset_data = reset_resp.json()
+        score = 0.0
 
-    obs = reset_data.get("observation", reset_data)
-    max_steps = obs.get("max_steps", 20)
+        for step in range(1, max_steps + 1):
+            if reset_result.done and step == 1:
+                break
 
-    score = 0.0
+            action_dict = get_agent_action(client, obs, conversation)
 
-    for step in range(1, max_steps + 1):
-        if reset_data.get("done", False) and step == 1:
-            break
+            try:
+                step_result = env.step(SupportAction.model_validate(action_dict))
+            except Exception as exc:
+                print(f"[DEBUG] Error taking step: {exc}")
+                break
 
-        action_dict = get_agent_action(client, obs, conversation)
+            obs = step_result.observation.model_dump()
+            reward = float(step_result.reward)
+            done = bool(step_result.done)
 
-        try:
-            step_resp = requests.post(
-                f"{env_url}/step",
-                json={"action": action_dict},
-                timeout=15,
-            )
-            step_resp.raise_for_status()
-            step_data = step_resp.json()
-        except Exception as exc:
-            print(f"[DEBUG] Error taking step: {exc}")
-            break
+            if done:
+                score = reward
+                break
 
-        obs = step_data.get("observation", step_data)
-        reward = float(step_data.get("reward", 0.0))
-        done = bool(step_data.get("done", False))
-
-        if done:
-            score = reward
-            break
-
-    return score
+        return score
 
 
 async def run_episode(task_id: str) -> Any:

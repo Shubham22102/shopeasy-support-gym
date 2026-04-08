@@ -137,7 +137,12 @@ class SupportObservation(Observation):
         description="Unique identifier for this support ticket.",
     )
     ticket_status: Literal[
-        "open", "pending_info", "pending_refund", "resolved", "escalated"
+        "open",
+        "pending_info",
+        "pending_refund",
+        "resolved",
+        "escalated",
+        "unresolved",
     ] = Field(
         default="open",
         description="Current lifecycle status of the support ticket.",

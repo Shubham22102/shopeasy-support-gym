@@ -322,6 +322,13 @@ class TestTermination:
         )
         assert obs.done is True
 
+    def test_close_ticket_unresolved_is_valid(self, simple_refund_env):
+        obs = simple_refund_env.step(
+            SupportAction(action_type="close_ticket", resolution="unresolved")
+        )
+        assert obs.done is True
+        assert obs.ticket_status == "unresolved"
+
     def test_max_steps_ends_episode(self, env):
         """Exceeding max steps should terminate the episode."""
         obs = env.reset(task_id="simple_refund", seed=1)

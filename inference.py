@@ -45,6 +45,13 @@ except ImportError:
 
 from openai import OpenAI
 
+try:
+    from Customer_Support_Gym_2.client import CustomerSupportGym2Env
+    from Customer_Support_Gym_2.models import SupportAction
+except ImportError:
+    from client import CustomerSupportGym2Env  # type: ignore
+    from models import SupportAction  # type: ignore
+
 # ── Configuration (all read from .env / shell env) ─────────────────────────
 API_BASE_URL: str = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME: str = os.getenv("MODEL_NAME", "gpt-4o-mini")
@@ -241,8 +248,6 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
     Connects to the env via HTTP (REST API), runs until done or max steps,
     and prints [START]/[STEP]/[END] logs to stdout.
     """
-    import requests
-
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
     rewards: List[float] = []
@@ -254,73 +259,59 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
     task_id = TASK_ID or None
     difficulty = DIFFICULTY or None
 
-    # ── reset ──────────────────────────────────────────────────────────────
-    reset_payload: Dict[str, Any] = {}
-    if task_id:
-        reset_payload["task_id"] = task_id
-    if difficulty:
-        reset_payload["difficulty"] = difficulty
-
     try:
-        resp = requests.post(f"{env_url}/reset", json=reset_payload, timeout=10)
-        resp.raise_for_status()
-        reset_data = resp.json()
+        with CustomerSupportGym2Env(base_url=env_url).sync() as env:
+            reset_result = env.reset(task_id=task_id, difficulty=difficulty)
+            obs_model = reset_result.observation
+            obs = obs_model.model_dump()
+            actual_task = obs.get("task_id", task_id or "unknown")
+            max_steps = obs.get("max_steps", MAX_STEPS)
+
+            log_start(task=actual_task, env=BENCHMARK, model=MODEL_NAME)
+
+            for step in range(1, max_steps + 1):
+                if reset_result.done and step == 1:
+                    break
+
+                action_dict = get_agent_action(client, obs, conversation)
+                action_str = json.dumps(action_dict)
+
+                try:
+                    step_result = env.step(SupportAction.model_validate(action_dict))
+                except Exception as exc:
+                    log_step(
+                        step=step,
+                        action=action_str,
+                        reward=0.0,
+                        done=True,
+                        error=str(exc),
+                    )
+                    break
+
+                obs_model = step_result.observation
+                obs = obs_model.model_dump()
+                reward = float(step_result.reward)
+                done = bool(step_result.done)
+                error = obs.get("tool_error")
+
+                rewards.append(reward)
+                steps_taken = step
+
+                log_step(
+                    step=step, action=action_str, reward=reward, done=done, error=error
+                )
+
+                if done:
+                    score = reward
+                    success = score >= SUCCESS_SCORE_THRESHOLD
+                    break
+
     except Exception as exc:
-        # Write to stderr so it doesn't pollute the grader's stdout
         sys.stderr.write(f"[ERROR] Failed to connect to env at {env_url}: {exc}\n")
         sys.stderr.write(
-            "[ERROR] Is the server running? Start with: uvicorn server.app:app --port 8000\n"
+            "[ERROR] Is the server running? Start with: uv run server or uvicorn server.app:app --port 8000\n"
         )
         sys.exit(1)
-
-    obs = reset_data.get("observation", reset_data)
-    actual_task = obs.get("task_id", task_id or "unknown")
-    max_steps = obs.get("max_steps", MAX_STEPS)
-
-    log_start(task=actual_task, env=BENCHMARK, model=MODEL_NAME)
-
-    try:
-        for step in range(1, max_steps + 1):
-            # Check if already done from reset (shouldn't happen but be safe)
-            if reset_data.get("done", False) and step == 1:
-                break
-
-            # Get agent action from LLM
-            action_dict = get_agent_action(client, obs, conversation)
-            action_str = json.dumps(action_dict)
-
-            # ── step ───────────────────────────────────────────────────────
-            try:
-                step_resp = requests.post(
-                    f"{env_url}/step",
-                    json={"action": action_dict},
-                    timeout=10,
-                )
-                step_resp.raise_for_status()
-                step_data = step_resp.json()
-            except Exception as exc:
-                log_step(
-                    step=step, action=action_str, reward=0.0, done=True, error=str(exc)
-                )
-                break
-
-            obs = step_data.get("observation", step_data)
-            reward = float(step_data.get("reward", 0.0))
-            done = bool(step_data.get("done", False))
-            error = step_data.get("error") or obs.get("tool_error")
-
-            rewards.append(reward)
-            steps_taken = step
-
-            log_step(
-                step=step, action=action_str, reward=reward, done=done, error=error
-            )
-
-            if done:
-                score = reward  # final reward IS the score (0.0–1.0)
-                success = score >= SUCCESS_SCORE_THRESHOLD
-                break
-
     finally:
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
