@@ -254,7 +254,7 @@ class RewardCalculator:
         if close_resolution == "timeout":
             return 0.05
         if order is None:
-            return OUTCOME_MAX * 0.5 if close_resolution == "resolved" else 0.0
+            return OUTCOME_MAX * 0.5 if close_resolution == "resolved" else 0.02
 
         correctness_score, _ = self._policy.check_resolution_correctness(
             order=order, scenario_task_id=scenario_task_id,

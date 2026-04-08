@@ -133,8 +133,10 @@ def log_step(
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     success_str = "true" if success else "false"
-    # Format all rewards to exactly 2 decimal places, comma-separated, no spaces
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    # Clamp final score AND every individual reward — never output 0.0 or 1.0
+    score = clamp_score(score)
+    clamped_rewards = [clamp_score(r) for r in rewards]
+    rewards_str = ",".join(f"{r:.2f}" for r in clamped_rewards)
     sys.stdout.write(
         f"[END]success={success_str}steps={steps}score={score:.3f}rewards={rewards_str}\n"
     )
@@ -287,7 +289,7 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
                     log_step(
                         step=step,
                         action=action_str,
-                        reward=0.0,
+                        reward=clamp_score(0.0),
                         done=True,
                         error=str(exc),
                     )
@@ -295,7 +297,7 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
 
                 obs_model = step_result.observation
                 obs = obs_model.model_dump()
-                reward = float(step_result.reward)
+                reward = clamp_score(float(step_result.reward))
                 done = bool(step_result.done)
                 error = obs.get("tool_error")
 
@@ -307,7 +309,6 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
                 )
 
                 if done:
-                    # Clamp once at the end, following the sample grader pattern.
                     score = clamp_score(reward)
                     success = score >= SUCCESS_SCORE_THRESHOLD
                     break
