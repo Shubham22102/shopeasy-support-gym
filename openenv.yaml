@@ -12,90 +12,100 @@ runtime: fastapi
 app: server.app:app
 port: 8000
 
+observation_space:
+  type: text
+  description: >
+    Natural language customer support conversation including customer messages,
+    ticket context, order details, and available tool outputs.
+
+action_space:
+  type: discrete
+  actions:
+    - resolve
+    - escalate
+    - refund
+    - search_kb
+    - lookup_order
+    - hold
+  description: >
+    Customer support actions for handling tickets.
+
+endpoints:
+  health: /
+  reset:  /reset
+  step:   /step
+  state:  /state
+
 tasks:
   - id: simple_refund
     description: "Easy: Customer wants a refund within the return window."
-    difficulty: easy
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: refund
 
   - id: delivery_tracking
     description: "Easy: Customer asks where their order is."
-    difficulty: easy
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: lookup_order
 
   - id: kb_policy_question
     description: "Easy: Customer asks about return policy."
-    difficulty: easy
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: search_kb
 
   - id: cancellation_request
     description: "Easy: Customer wants to cancel a pending order."
-    difficulty: easy
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: resolve
 
   - id: expired_return
     description: "Medium: Return request outside the policy window."
-    difficulty: medium
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: search_kb
 
   - id: wrong_item_sent
     description: "Medium: Customer received incorrect product."
-    difficulty: medium
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: refund
 
   - id: duplicate_charge
     description: "Medium: Customer was charged twice."
-    difficulty: medium
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: refund
 
   - id: partial_order
     description: "Medium: Customer only received part of their order."
-    difficulty: medium
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: refund
 
   - id: damaged_item
     description: "Hard: Item arrived broken — instant refund policy applies."
-    difficulty: hard
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: refund
 
   - id: angry_customer
     description: "Hard: Extremely angry customer, agent must de-escalate."
-    difficulty: hard
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: resolve
 
   - id: fraud_risk
     description: "Hard: Suspicious request must be escalated, not refunded."
-    difficulty: hard
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: escalate
 
   - id: vip_warranty_claim
     description: "Hard: VIP customer warranty claim for electronics."
-    difficulty: hard
-    grader:
-      endpoint: /grader
-      score_range: [0.02, 0.98]
+    steps: 3
+    ideal_action: resolve
+
+scoring:
+  reward_range: [0.0, 1.0]
+  success_threshold: 0.5
+  score_formula: mean(step_rewards)
+
+constraints:
+  max_runtime_seconds: 1200
+  max_memory_gb: 8
+  max_vcpu: 2
 
 env_vars:
   - API_BASE_URL
