@@ -77,6 +77,7 @@ class SupportEnvironment(Environment):
         # Loop / stall detection
         self._last_tool_call: Optional[str] = None  # "tool_name|args_json"
         self._consecutive_messages: int = 0  # messages without any tool call
+        self._accumulated_reward: float = 0.0
 
     # ------------------------------------------------------------------
     # OpenEnv interface: reset
@@ -116,6 +117,7 @@ class SupportEnvironment(Environment):
         self._agent_sent_messages = False
         self._last_tool_call = None
         self._consecutive_messages = 0
+        self._accumulated_reward = 0.0
 
         # Pick scenario
         self._scenario = get_scenario(task_id=task_id, difficulty=difficulty)
@@ -320,6 +322,9 @@ class SupportEnvironment(Environment):
             resolution = action.resolution or "unresolved"
             return self._close_episode(resolution)
 
+        # Accumulate intermediate rewards
+        self._accumulated_reward += reward
+
         # ------------------------------------------------------------------
         # Check step limit
         # ------------------------------------------------------------------
@@ -390,9 +395,12 @@ class SupportEnvironment(Environment):
             {"role": "customer", "content": final_customer_msg}
         )
 
+        final_reward = round(reward_data["total"] - self._accumulated_reward, 4)
+        self._accumulated_reward += final_reward
+
         return SupportObservation(
             done=True,
-            reward=reward_data["total"],
+            reward=final_reward,
             customer_message=final_customer_msg,
             customer_sentiment=self._persona.mood_label,
             tool_result=None,
@@ -426,9 +434,12 @@ class SupportEnvironment(Environment):
             agent_sent_messages=self._agent_sent_messages,
         )
 
+        final_reward = round(reward_data["total"] - self._accumulated_reward, 4)
+        self._accumulated_reward += final_reward
+
         return SupportObservation(
             done=True,
-            reward=reward_data["total"],
+            reward=final_reward,
             customer_message=f"[Episode ended: {reason}]",
             customer_sentiment="angry",
             tool_result=None,

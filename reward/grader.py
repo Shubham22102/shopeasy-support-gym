@@ -21,8 +21,8 @@ from typing import Any, Dict, Tuple
 # Constants
 # ---------------------------------------------------------------------------
 
-STRICT_SCORE_MIN = 0.001
-STRICT_SCORE_MAX = 0.999
+STRICT_SCORE_MIN = 0.01
+STRICT_SCORE_MAX = 0.99
 
 OUTCOME_MAX = 0.60
 PROCESS_MAX = 0.30

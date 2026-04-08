@@ -302,7 +302,8 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
                 )
 
                 if done:
-                    score = reward
+                    # Clamp to strict open interval (0.01, 0.99) — hackathon requirement
+                    score = max(0.01, min(0.99, reward))
                     success = score >= SUCCESS_SCORE_THRESHOLD
                     break
 
@@ -313,6 +314,8 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
         )
         sys.exit(1)
     finally:
+        # Final safety clamp — ensures score is never exactly 0.0 or 1.0
+        score = max(0.01, min(0.99, score))
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 

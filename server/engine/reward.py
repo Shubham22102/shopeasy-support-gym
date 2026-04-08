@@ -81,7 +81,7 @@ class RewardCalculator:
         r_efficiency = self._compute_efficiency(step_count, max_steps)
 
         total = round(r_outcome + r_process + r_efficiency, 4)
-        total = max(0.0, min(1.0, total))
+        total = max(0.01, min(0.99, total))
 
         return {
             "outcome": round(r_outcome, 4),
