@@ -35,8 +35,8 @@ server = "Customer_Support_Gym_2.server.app:main"
 
 [tool.setuptools]
 include-package-data = true
-packages = ["Customer_Support_Gym_2", "Customer_Support_Gym_2.server"]
-package-dir = { "Customer_Support_Gym_2" = ".", "Customer_Support_Gym_2.server" = "server" }
+packages = ["Customer_Support_Gym_2", "Customer_Support_Gym_2.server", "reward"]
+package-dir = { "Customer_Support_Gym_2" = ".", "Customer_Support_Gym_2.server" = "server", "reward" = "reward" }
 [tool.pyright]
 include = ["."]
 extraPaths = ["."]
