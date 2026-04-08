@@ -29,14 +29,14 @@ try:
     from .data.customers import CustomerPersona, make_persona_for_scenario
     from .data.orders import OrderDatabase
     from .data.scenarios import Scenario, get_scenario
-    from .engine.reward import RewardCalculator
+    from .engine.reward import RewardCalculator, score_step_action
     from .engine.tools import execute_tool
 except ImportError:
     from models import SupportAction, SupportObservation  # type: ignore
     from server.data.customers import CustomerPersona, make_persona_for_scenario  # type: ignore
     from server.data.orders import OrderDatabase  # type: ignore
     from server.data.scenarios import Scenario, get_scenario  # type: ignore
-    from server.engine.reward import RewardCalculator  # type: ignore
+    from server.engine.reward import RewardCalculator, score_step_action  # type: ignore
     from server.engine.tools import execute_tool  # type: ignore
 
 
@@ -75,9 +75,13 @@ class SupportEnvironment(Environment):
         self._agent_sent_messages: bool = False
         self._reward_calc = RewardCalculator()
         # Loop / stall detection
-        self._last_tool_call: Optional[str] = None  # "tool_name|args_json"
-        self._consecutive_messages: int = 0  # messages without any tool call
+        self._last_tool_call: Optional[str] = None
+        self._consecutive_messages: int = 0
         self._accumulated_reward: float = 0.0
+        # Trajectory tracking
+        self._step_scores: list = []
+        self._step_categories: list = []
+        self._last_agent_message: str = ""
 
     # ------------------------------------------------------------------
     # OpenEnv interface: reset
@@ -118,6 +122,9 @@ class SupportEnvironment(Environment):
         self._last_tool_call = None
         self._consecutive_messages = 0
         self._accumulated_reward = 0.0
+        self._step_scores = []
+        self._step_categories = []
+        self._last_agent_message = ""
 
         # Pick scenario
         self._scenario = get_scenario(task_id=task_id, difficulty=difficulty)
@@ -269,6 +276,18 @@ class SupportEnvironment(Environment):
             else:
                 tool_error = result.get("error", "Tool call failed.")
 
+            # Score this step for trajectory grading
+            _ss, _sc = score_step_action(
+                action_type="tool_call", tool_name=tname, tool_args=targs,
+                tool_result=tool_result, tool_error=tool_error,
+                agent_message=self._last_agent_message,
+                difficulty=self._scenario.difficulty if self._scenario else "easy",
+                task_id=self._scenario.task_id if self._scenario else "",
+                verified_facts=self._verified_facts, order=self._order,
+            )
+            self._step_scores.append(_ss)
+            self._step_categories.append(_sc)
+
             # Customer may react if too many consecutive tool calls
             customer_reaction = self._persona.react_to_tool_call()
             if customer_reaction:
@@ -291,6 +310,18 @@ class SupportEnvironment(Environment):
 
             # Add agent message to history
             self._conversation_history.append({"role": "agent", "content": msg})
+            self._last_agent_message = msg
+
+            # Score this send_message step
+            _ss, _sc = score_step_action(
+                action_type="send_message", tool_name=None, tool_args={},
+                tool_result=None, tool_error=None, agent_message=msg,
+                difficulty=self._scenario.difficulty if self._scenario else "easy",
+                task_id=self._scenario.task_id if self._scenario else "",
+                verified_facts=self._verified_facts, order=self._order,
+            )
+            self._step_scores.append(_ss)
+            self._step_categories.append(_sc)
 
             # Simple heuristic checks (real env would use classifier)
             contains_apology = any(
@@ -374,6 +405,19 @@ class SupportEnvironment(Environment):
         """Handle close_ticket action — calculate final reward."""
         step = self._state.step_count
 
+        # Score the close_ticket action itself
+        _ss, _sc = score_step_action(
+            action_type="close_ticket", tool_name=None,
+            tool_args={"resolution": resolution},
+            tool_result=None, tool_error=None,
+            agent_message=self._last_agent_message,
+            difficulty=self._scenario.difficulty if self._scenario else "easy",
+            task_id=self._scenario.task_id if self._scenario else "",
+            verified_facts=self._verified_facts, order=self._order,
+        )
+        self._step_scores.append(_ss)
+        self._step_categories.append(_sc)
+
         reward_data = self._reward_calc.calculate(
             order=self._order,
             scenario_task_id=self._scenario.task_id if self._scenario else "unknown",
@@ -384,6 +428,9 @@ class SupportEnvironment(Environment):
             max_steps=self._scenario.max_steps if self._scenario else 20,
             customer_mood=self._persona.mood if self._persona else 0.0,
             agent_sent_messages=self._agent_sent_messages,
+            difficulty=self._scenario.difficulty if self._scenario else "easy",
+            step_scores=self._step_scores,
+            step_categories=self._step_categories,
         )
 
         self._ticket_status = resolution
@@ -432,6 +479,9 @@ class SupportEnvironment(Environment):
             max_steps=self._scenario.max_steps if self._scenario else 20,
             customer_mood=self._persona.mood if self._persona else -1.0,
             agent_sent_messages=self._agent_sent_messages,
+            difficulty=self._scenario.difficulty if self._scenario else "easy",
+            step_scores=self._step_scores,
+            step_categories=self._step_categories,
         )
 
         final_reward = round(reward_data["total"] - self._accumulated_reward, 4)

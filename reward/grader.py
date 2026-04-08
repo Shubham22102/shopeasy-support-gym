@@ -40,7 +40,9 @@ KB_REQUIRED_TASKS = {"expired_return", "kb_policy_question", "vip_warranty_claim
 
 def _clamp(score: float) -> float:
     """Clamp to the open interval (0, 1) required by hackathon validators."""
-    return min(STRICT_SCORE_MAX, max(STRICT_SCORE_MIN, float(score)))
+    # OpenEnv requirement: scores must be strictly in (0.0, 1.0)
+    clamped = min(STRICT_SCORE_MAX, max(STRICT_SCORE_MIN, float(score)))
+    return round(clamped, 3)
 
 
 def _compute_efficiency(step_count: int, max_steps: int) -> float:
@@ -285,6 +287,8 @@ class TaskGrader:
         agent_sent_messages = bool(
             kwargs.get("agent_sent_messages", state.get("agent_sent_messages", True))
         )
+
+        raw_score = 0.5
 
         raw_score = _score_task(
             task_id=task,
