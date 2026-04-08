@@ -91,7 +91,9 @@ def grader_endpoint(
         task_id=resolved_task,
         world_state=state,
     )
-    return result.as_info()
+    payload = result.as_info()
+    payload["endpoint"] = "/grader"
+    return payload
 
 
 @app.post("/grader")
@@ -106,7 +108,9 @@ def grader_endpoint_post(payload: Dict[str, Any]):
         task_id=resolved_task,
         world_state=state,
     )
-    return result.as_info()
+    payload = result.as_info()
+    payload["endpoint"] = "/grader"
+    return payload
 
 
 def main(host: str = "0.0.0.0", port: int = 8000):

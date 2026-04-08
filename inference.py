@@ -141,6 +141,11 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
     sys.stdout.flush()
 
 
+def clamp_score(score: float) -> float:
+    """Ensure scores stay strictly inside (0, 1) for hackathon validation."""
+    return round(min(max(float(score), 0.02), 0.98), 3)
+
+
 # ── Observation → LLM prompt ───────────────────────────────────────────────
 
 
@@ -302,8 +307,8 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
                 )
 
                 if done:
-                    # Clamp to strict open interval used by hackathon graders
-                    score = max(0.02, min(0.98, reward))
+                    # Clamp once at the end, following the sample grader pattern.
+                    score = clamp_score(reward)
                     success = score >= SUCCESS_SCORE_THRESHOLD
                     break
 
@@ -314,8 +319,8 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
         )
         sys.exit(1)
     finally:
-        # Final safety clamp — ensures score is never exactly 0.0 or 1.0
-        score = max(0.02, min(0.98, score))
+        # Final safety clamp — ensures score is never exactly 0.0 or 1.0.
+        score = clamp_score(score)
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 

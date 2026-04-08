@@ -24,6 +24,7 @@ from typing import Any, Dict, Iterator, Tuple
 
 STRICT_SCORE_MIN = 0.02
 STRICT_SCORE_MAX = 0.98
+SCORE_RANGE = [STRICT_SCORE_MIN, STRICT_SCORE_MAX]
 
 OUTCOME_MAX = 0.60
 PROCESS_MAX = 0.30
@@ -330,6 +331,7 @@ class TaskGradeResult:
             "score": self.score,
             "passed": self.passed,
             "feedback": self.feedback,
+            "score_range": SCORE_RANGE,
         }
 
     def __iter__(self) -> Iterator[Any]:
