@@ -16,6 +16,9 @@ tasks:
   - id: simple_refund
     description: "Easy: Customer wants a refund within the return window."
     difficulty: easy
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -23,6 +26,9 @@ tasks:
   - id: delivery_tracking
     description: "Easy: Customer asks where their order is."
     difficulty: easy
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -30,6 +36,9 @@ tasks:
   - id: kb_policy_question
     description: "Easy: Customer asks about return policy."
     difficulty: easy
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -37,6 +46,9 @@ tasks:
   - id: cancellation_request
     description: "Easy: Customer wants to cancel a pending order."
     difficulty: easy
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -44,6 +56,9 @@ tasks:
   - id: expired_return
     description: "Medium: Return request outside the policy window."
     difficulty: medium
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -51,6 +66,9 @@ tasks:
   - id: wrong_item_sent
     description: "Medium: Customer received incorrect product."
     difficulty: medium
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -58,6 +76,9 @@ tasks:
   - id: duplicate_charge
     description: "Medium: Customer was charged twice."
     difficulty: medium
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -65,6 +86,9 @@ tasks:
   - id: partial_order
     description: "Medium: Customer only received part of their order."
     difficulty: medium
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -72,6 +96,9 @@ tasks:
   - id: damaged_item
     description: "Hard: Item arrived broken — instant refund policy applies."
     difficulty: hard
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -79,6 +106,9 @@ tasks:
   - id: angry_customer
     description: "Hard: Extremely angry customer, agent must de-escalate."
     difficulty: hard
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -86,6 +116,9 @@ tasks:
   - id: fraud_risk
     description: "Hard: Suspicious request must be escalated, not refunded."
     difficulty: hard
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader
@@ -93,6 +126,9 @@ tasks:
   - id: vip_warranty_claim
     description: "Hard: VIP customer warranty claim for electronics."
     difficulty: hard
+    grader:
+      endpoint: /grader
+      score_range: [0.02, 0.98]
     graders:
       - path: reward/grader.py
         name: TaskGrader

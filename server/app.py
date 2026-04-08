@@ -13,6 +13,7 @@ Endpoints:
 """
 
 import os
+from typing import Any, Dict
 
 # Load .env FIRST — reads OPENAI_API_KEY, HF_TOKEN, MAX_CONCURRENT_ENVS, etc.
 try:
@@ -54,6 +55,58 @@ app = create_app(
     env_name="shopeasy-support-gym",
     max_concurrent_envs=_max_sessions,
 )
+
+
+def _normalize_grader_inputs(
+    task_id: str | None,
+    world_state: Dict[str, Any] | None,
+    payload: Dict[str, Any] | None = None,
+) -> tuple[str, Dict[str, Any]]:
+    merged_state: Dict[str, Any] = {}
+    if isinstance(world_state, dict):
+        merged_state.update(world_state)
+    if isinstance(payload, dict):
+        merged_state.update(payload)
+
+    resolved_task = (
+        task_id
+        or merged_state.get("task_id")
+        or merged_state.get("current_task_id")
+        or os.getenv("DEFAULT_TASK_ID")
+        or "simple_refund"
+    )
+    return resolved_task, merged_state
+
+
+@app.get("/grader")
+def grader_endpoint(
+    task_id: str | None = None,
+    session_id: str | None = None,
+):
+    """Runtime grader endpoint for hackathon task validation."""
+    from reward.grader import TaskGrader
+
+    resolved_task, state = _normalize_grader_inputs(task_id, {"session_id": session_id})
+    result = TaskGrader(default_task_id=resolved_task).grade(
+        task_id=resolved_task,
+        world_state=state,
+    )
+    return result.as_info()
+
+
+@app.post("/grader")
+def grader_endpoint_post(payload: Dict[str, Any]):
+    """POST variant of the hackathon grader endpoint."""
+    from reward.grader import TaskGrader
+
+    task_id = payload.get("task_id")
+    world_state = payload.get("world_state")
+    resolved_task, state = _normalize_grader_inputs(task_id, world_state, payload)
+    result = TaskGrader(default_task_id=resolved_task).grade(
+        task_id=resolved_task,
+        world_state=state,
+    )
+    return result.as_info()
 
 
 def main(host: str = "0.0.0.0", port: int = 8000):

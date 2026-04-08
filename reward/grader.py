@@ -10,7 +10,7 @@ Scoring contract
   grade(task_id, world_state, **kwargs) -> (float, dict)
 
   The returned float is ALWAYS strictly inside (0, 1):
-    0.001 ≤ score ≤ 0.999
+    0.02 ≤ score ≤ 0.98
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ from typing import Any, Dict, Iterator, Tuple
 # Constants
 # ---------------------------------------------------------------------------
 
-STRICT_SCORE_MIN = 0.01
-STRICT_SCORE_MAX = 0.99
+STRICT_SCORE_MIN = 0.02
+STRICT_SCORE_MAX = 0.98
 
 OUTCOME_MAX = 0.60
 PROCESS_MAX = 0.30
