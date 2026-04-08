@@ -310,18 +310,15 @@ shopeasy-support-gym/
 ├── client.py                      # Python client for the env
 ├── models.py                      # SupportAction + SupportObservation
 ├── __init__.py                    # Package exports
+├── tasks/                         # OpenEnv Validator logic
+│   ├── __init__.py                # Exports TASKS and grade_action
+│   ├── definitions.py             # Task registry with step data
+│   └── graders.py                 # Self-contained logic for validator
 └── server/
     ├── app.py                     # FastAPI application
     ├── Customer_Support_Gym_2_environment.py  # Core env logic
-    ├── data/
-    │   ├── orders.py              # 100 synthetic orders DB
-    │   ├── customers.py           # Customer persona engine
-    │   ├── scenarios.py           # 12 scenario definitions
-    │   └── knowledge_base.py     # Policy KB (search_kb tool)
-    └── engine/
-        ├── tools.py               # Tool executor (6 tools)
-        ├── policy_engine.py       # Refund policy rules engine
-        └── reward.py              # 3-tier reward calculator
+    ├── data/                      # Simulation data (Orders, KB, etc.)
+    └── engine/                    # Core logic (Tools, Policies, Reward)
 ```
 
 ---
