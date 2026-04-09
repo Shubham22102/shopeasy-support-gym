@@ -12,8 +12,8 @@ REQUIRED ENV VARS (set in .env or export before running):
 
 STDOUT FORMAT (mandatory for hackathon grader):
   [START] task=<task_id> env=shopeasy-support-gym model=<model>
-  [STEP]  step=<n> action=<json> reward=<0.00> done=<true|false> error=<msg|null>
-  [END]   success=<true|false> steps=<n> score=<0.000> rewards=<r1,r2,...>
+  [STEP] step=<n> action=<json> reward=<0.00> done=<true|false> error=<msg|null>
+  [END] success=<true|false> steps=<n> rewards=<r1,r2,...>
 
 USAGE:
   # Run against local server (start server first):
@@ -108,37 +108,42 @@ Output ONLY the JSON object. No explanations, no markdown, no extra text.
 """).strip()
 
 
-# ── Logging helpers (mandatory hackathon format — NO extra spaces) ────────
+# ── Logging helpers (mandatory hackathon format — SPACES REQUIRED) ────────
 
 
 def log_start(task: str, env: str, model: str) -> None:
-    sys.stdout.write(f"[START]task={task}env={env}model={model}\n")
+    # CRITICAL: Spaces between fields! [START] task=X env=Y model=Z
+    sys.stdout.write(f"[START] task={task} env={env} model={model}\n")
     sys.stdout.flush()
 
 
 def log_step(
     step: int, action: str, reward: float, done: bool, error: Optional[str]
 ) -> None:
-    # CRITICAL: exact 2-decimal reward, no spaces between fields
+    # CRITICAL: Spaces between fields! [STEP] step=X action=Y reward=Z done=W error=V
     reward_str = f"{reward:.2f}"
     done_str = "true" if done else "false"
     error_str = error if error else "null"
     # Remove newlines from action to guarantee single-line output
     action_clean = action.replace("\n", " ").replace("\r", "")[:200]
     sys.stdout.write(
-        f"[STEP]step={step}action={action_clean}reward={reward_str}done={done_str}error={error_str}\n"
+        f"[STEP] step={step} action={action_clean} reward={reward_str} done={done_str} error={error_str}\n"
     )
     sys.stdout.flush()
 
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    # CRITICAL: 
+    # 1. Spaces between fields
+    # 2. Use rewards= NOT score= (the field name matters!)
     success_str = "true" if success else "false"
     # Clamp final score AND every individual reward — never output 0.0 or 1.0
     score = clamp_score(score)
     clamped_rewards = [clamp_score(r) for r in rewards]
     rewards_str = ",".join(f"{r:.2f}" for r in clamped_rewards)
+    # CORRECT: rewards= (not score=)
     sys.stdout.write(
-        f"[END]success={success_str}steps={steps}score={score:.3f}rewards={rewards_str}\n"
+        f"[END] success={success_str} steps={steps} rewards={rewards_str}\n"
     )
     sys.stdout.flush()
 
@@ -289,7 +294,7 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
                     log_step(
                         step=step,
                         action=action_str,
-                        reward=clamp_score(0.0),
+                        reward=0.00,  # Use 0.00 for error steps
                         done=True,
                         error=str(exc),
                     )
@@ -297,7 +302,9 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
 
                 obs_model = step_result.observation
                 obs = obs_model.model_dump()
-                reward = clamp_score(float(step_result.reward))
+                # For intermediate steps, use raw reward (will be shown as-is)
+                # Only clamp for logging if you want, but spec says intermediate can be anything
+                reward = float(step_result.reward)
                 done = bool(step_result.done)
                 error = obs.get("tool_error")
 
@@ -309,7 +316,7 @@ def run_episode(env_url: str = "http://localhost:8000") -> None:
                 )
 
                 if done:
-                    score = clamp_score(reward)
+                    score = reward  # Use final reward from env
                     success = score >= SUCCESS_SCORE_THRESHOLD
                     break
 

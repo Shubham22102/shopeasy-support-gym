@@ -256,7 +256,10 @@ class TaskGrader:
         task_id: str | None = None,
         world_state: Dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> "TaskGradeResult":
+    ) -> tuple[float, dict]:  # <-- FIXED: Return plain tuple, not TaskGradeResult
+        """
+        Grade the task. Returns (score, info_dict) for validator compatibility.
+        """
         state = world_state or {}
 
         task = (
@@ -305,18 +308,20 @@ class TaskGrader:
         score = _clamp(raw_score)
         passed = score >= 0.5
 
-        return TaskGradeResult(
-            score=score,
-            passed=passed,
-            feedback=f"Task '{task}' score: {score:.3f} (resolution={resolution})",
-            task_id=task,
-        )
+        # Return plain tuple (score, info_dict) - NOT a dataclass!
+        info = {
+            "task_id": task,
+            "score": score,
+            "passed": passed,
+            "feedback": f"Task '{task}' score: {score:.3f} (resolution={resolution})",
+            "score_range": SCORE_RANGE,
+        }
+        return score, info  # <-- FIXED: Plain tuple, no TaskGradeResult
 
 
 @dataclass
 class TaskGradeResult:
-    """Compatibility result with both attribute access and tuple unpacking."""
-
+    """Kept for backward compatibility but no longer used as return type."""
     score: float
     passed: bool
     feedback: str
@@ -375,5 +380,6 @@ def grade(
     task_id: str | None = None,
     world_state: Dict[str, Any] | None = None,
     **kwargs: Any,
-) -> TaskGradeResult:
+) -> tuple[float, dict]:  # <-- FIXED: Return type hint
+    """Module-level grade function that returns plain tuple."""
     return _default_grader.grade(task_id=task_id, world_state=world_state, **kwargs)
