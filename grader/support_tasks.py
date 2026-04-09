@@ -9,10 +9,9 @@ All scores are strictly clamped to (0, 1) — never 0.0 or 1.0.
 
 Scoring contract
 ----------------
-  grade(**kwargs) -> (float, bool, str)
-    - float: score in open interval (0, 1)
-    - bool:  whether the task is considered "passed"
-    - str:   human-readable feedback
+  grade(task_id=None, world_state=None, **kwargs) -> (float, dict)
+    - float: score strictly in open interval (0, 1) — recommend [0.02, 0.98]
+    - dict:  must contain keys: task_id, score, passed, feedback, score_range
 """
 
 from __future__ import annotations
@@ -21,11 +20,11 @@ import math
 from typing import Any, Dict
 
 # ---------------------------------------------------------------------------
-# Constants
+# Constants - Use STRICT bounds to avoid edge cases
 # ---------------------------------------------------------------------------
 
-_SCORE_MIN = 0.01
-_SCORE_MAX = 0.989
+_SCORE_MIN = 0.02  # Changed from 0.01 to be safe
+_SCORE_MAX = 0.98  # Changed from 0.989 to be safe
 
 
 def _safe_score(raw: float) -> float:
@@ -33,8 +32,8 @@ def _safe_score(raw: float) -> float:
     if raw is None or (isinstance(raw, float) and math.isnan(raw)):
         return _SCORE_MIN
     score = float(raw)
+    # Double clamping to ensure we never hit 0.0 or 1.0
     score = max(_SCORE_MIN, min(_SCORE_MAX, score))
-    assert 0 < score < 1, f"Score out of range: {score}"
     return round(score, 3)
 
 
@@ -55,25 +54,47 @@ class BaseTaskGrader:
 
     task_id: str = "unknown"
 
-    def grade(self, **kwargs: Any) -> tuple:
-        ws = _extract(kwargs)
-        facts = ws.get("verified_facts") or ws.get("facts") or {}
+    def grade(
+        self,
+        task_id: str | None = None,
+        world_state: Dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> tuple[float, dict]:
+        """
+        Grade the task. Returns (score, info_dict) for validator compatibility.
+        """
+        # Support both old and new calling conventions
+        state = world_state or _extract(kwargs)
+        
+        facts = state.get("verified_facts") or state.get("facts") or {}
         resolution = (
-            ws.get("close_resolution")
-            or ws.get("final_resolution")
-            or ws.get("resolution")
+            state.get("close_resolution")
+            or state.get("final_resolution")
+            or state.get("resolution")
             or kwargs.get("resolution")
             or "unresolved"
         )
-        step_count = int(ws.get("step_count", kwargs.get("step_count", 5)))
-        max_steps = int(ws.get("max_steps", kwargs.get("max_steps", 10)))
-        order = ws.get("order") or {}
-        mood = float(ws.get("customer_mood", kwargs.get("customer_mood", 0.0)))
+        step_count = int(state.get("step_count", kwargs.get("step_count", 5)))
+        max_steps = int(state.get("max_steps", kwargs.get("max_steps", 10)))
+        order = state.get("order") or {}
+        mood = float(state.get("customer_mood", kwargs.get("customer_mood", 0.0)))
 
+        # Calculate raw score
         raw = self._score(facts, resolution, order, step_count, max_steps, mood)
         score = _safe_score(raw)
         passed = score >= 0.5
-        return score, passed, f"Task '{self.task_id}' score: {score:.3f}"
+        
+        # Build info dict (REQUIRED by validator)
+        info = {
+            "task_id": self.task_id,
+            "score": score,
+            "passed": passed,
+            "feedback": f"Task '{self.task_id}' score: {score:.3f}",
+            "score_range": [_SCORE_MIN, _SCORE_MAX],
+        }
+        
+        # Return 2-tuple: (score, info_dict) - NOT 3-tuple!
+        return score, info
 
     def _score(self, facts, resolution, order, step_count, max_steps, mood) -> float:
         return 0.5
@@ -273,7 +294,7 @@ class FraudRiskGrader(BaseTaskGrader):
         if facts.get("escalated") and not facts.get("refund_processed"):
             score += 0.80  # Correctly escalated without refunding
         elif facts.get("refund_processed"):
-            score = 0.02  # WORST: refunding a fraudster
+            score = 0.02  # WORST: refunding a fraudster (set to min safe score)
         elif facts.get("escalated"):
             score += 0.30
         if facts.get("order_looked_up"):
