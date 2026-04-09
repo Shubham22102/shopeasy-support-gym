@@ -1,47 +1,11 @@
 """
 Inference Script — ShopEasy Customer Support Resolution Gym
-============================================================
-Baseline ReAct-style agent that resolves customer support tickets
-using structured JSON tool calls via the OpenAI-compatible API.
-
-REQUIRED ENV VARS (set in .env or export before running):
-  API_BASE_URL   — LLM API endpoint (default: https://api.openai.com/v1)
-  MODEL_NAME     — model identifier  (default: gpt-4o-mini)
-  OPENAI_API_KEY — your API key (also checked as HF_TOKEN for HF inference)
-  HF_TOKEN       — Hugging Face token (used as API key for HF endpoints)
-
-STDOUT FORMAT (mandatory for hackathon grader):
-  [START] task=<task_id> env=shopeasy-support-gym model=<model>
-  [STEP] step=<n> action=<json> reward=<0.00> done=<true|false> error=<msg|null>
-  [END] success=<true|false> steps=<n> rewards=<r1,r2,...>
-
-USAGE:
-  # Run against local server (start server first):
-  uvicorn server.app:app --port 8000 &
-  python inference.py
-
-  # Run specific task:
-  TASK_ID=angry_customer python inference.py
-
-  # Run against Docker image:
-  LOCAL_IMAGE_NAME=shopeasy-support-gym python inference.py
 """
 
 import json
 import os
-import sys
 import textwrap
 from typing import Any, Dict, List, Optional
-
-# ── Load .env FIRST before reading any env vars ────────────────────────────
-try:
-    from dotenv import load_dotenv
-
-    # load_dotenv() looks for .env in cwd and parents; override=False keeps
-    # already-set shell vars untouched (so CI/CD env vars take priority).
-    load_dotenv(override=False)
-except ImportError:
-    pass  # dotenv not installed — rely on shell env vars (fine in Docker/HF)
 
 from openai import OpenAI
 
@@ -52,31 +16,22 @@ except ImportError:
     from client import CustomerSupportGym2Env  # type: ignore
     from models import SupportAction  # type: ignore
 
-# ── Configuration (all read from .env / shell env) ─────────────────────────
+# Environment variables with defaults
 API_BASE_URL: str = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME: str = os.getenv("MODEL_NAME", "gpt-4o-mini")
-# OpenAI key takes priority; fall back to HF_TOKEN for HF inference endpoints
 API_KEY: str = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN") or "no-key-set"
-HF_TOKEN: str = os.getenv("HF_TOKEN", "")
-
-# Task selection
 TASK_ID: str = os.getenv("TASK_ID", os.getenv("DEFAULT_TASK_ID", ""))
 DIFFICULTY: str = os.getenv("DIFFICULTY", os.getenv("DEFAULT_DIFFICULTY", ""))
 BENCHMARK: str = "shopeasy-support-gym"
-
-# Docker image name (if using from_docker_image instead of local server)
 LOCAL_IMAGE_NAME: Optional[str] = os.getenv("LOCAL_IMAGE_NAME")
 
-# Agent config
 MAX_STEPS: int = int(os.getenv("MAX_STEPS", "20"))
 TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.3"))
 MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "400"))
-SUCCESS_SCORE_THRESHOLD: float = 0.4  # reward >= 0.4 counts as "success"
+SUCCESS_SCORE_THRESHOLD: float = 0.5
 
-# ── System Prompt ───────────────────────────────────────────────────────────
 SYSTEM_PROMPT = textwrap.dedent("""
 You are a professional customer support agent for ShopEasy, an e-commerce platform.
-Your goal is to resolve the customer's issue efficiently and correctly by following company policies.
 
 AVAILABLE TOOLS:
   lookup_order          — look up order details. args: {"order_id": "SE-XXXX"}
@@ -94,70 +49,49 @@ RULES:
   5. Apologize sincerely when the customer is upset.
   6. Be concise — do not use unnecessary tool calls.
 
-RESPONSE FORMAT — you MUST output EXACTLY ONE of these JSON objects per turn:
-  Tool call:
-    {"action_type": "tool_call", "tool_name": "<name>", "tool_args": {<args>}}
+RESPONSE FORMAT — output EXACTLY ONE JSON object per turn:
+  {"action_type": "tool_call", "tool_name": "<name>", "tool_args": {<args>}}
+  or
+  {"action_type": "send_message", "message": "<your message>"}
+  or  
+  {"action_type": "close_ticket", "resolution": "resolved"|"escalated"|"unresolved"}
 
-  Message to customer:
-    {"action_type": "send_message", "message": "<your message to customer>"}
-
-  Close ticket:
-    {"action_type": "close_ticket", "resolution": "resolved"|"escalated"|"unresolved"}
-
-Output ONLY the JSON object. No explanations, no markdown, no extra text.
+Output ONLY the JSON object. No explanations, no markdown.
 """).strip()
 
 
-# ── Logging helpers (mandatory hackathon format — SPACES REQUIRED) ────────
-
-
 def log_start(task: str, env: str, model: str) -> None:
-    # CRITICAL: Spaces between fields! [START] task=X env=Y model=Z
-    sys.stdout.write(f"[START] task={task} env={env} model={model}\n")
-    sys.stdout.flush()
+    """Format: [START] task=X env=Y model=Z"""
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
 
-def log_step(
-    step: int, action: str, reward: float, done: bool, error: Optional[str]
-) -> None:
-    # CRITICAL: Spaces between fields! [STEP] step=X action=Y reward=Z done=W error=V
-    reward_str = f"{reward:.2f}"
-    done_str = "true" if done else "false"
-    error_str = error if error else "null"
-    # Remove newlines from action to guarantee single-line output
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    """Format: [STEP] step=X action=Y reward=Z done=W error=V"""
+    error_val = error if error else "null"
+    done_val = str(done).lower()
     action_clean = action.replace("\n", " ").replace("\r", "")[:200]
-    sys.stdout.write(
-        f"[STEP] step={step} action={action_clean} reward={reward_str} done={done_str} error={error_str}\n"
+    print(
+        f"[STEP] step={step} action={action_clean} reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
     )
-    sys.stdout.flush()
 
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
-    # CRITICAL: 
-    # 1. Spaces between fields
-    # 2. Use rewards= NOT score= (the field name matters!)
-    success_str = "true" if success else "false"
-    # Clamp final score AND every individual reward — never output 0.0 or 1.0
-    score = clamp_score(score)
-    clamped_rewards = [clamp_score(r) for r in rewards]
-    rewards_str = ",".join(f"{r:.2f}" for r in clamped_rewards)
-    # CORRECT: rewards= (not score=)
-    sys.stdout.write(
-        f"[END] success={success_str} steps={steps} rewards={rewards_str}\n"
+    """Format: [END] success=X steps=Y score=Z rewards=R1,R2,..."""
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(
+        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}",
+        flush=True,
     )
-    sys.stdout.flush()
 
 
 def clamp_score(score: float) -> float:
-    """Ensure scores stay strictly inside (0, 1) for hackathon validation."""
+    """Ensure final score stays strictly inside (0, 1)."""
     return round(min(max(float(score), 0.02), 0.98), 3)
 
 
-# ── Observation → LLM prompt ───────────────────────────────────────────────
-
-
 def build_user_prompt(obs_dict: Dict[str, Any]) -> str:
-    """Convert a SupportObservation dict into a clear prompt for the LLM."""
+    """Build prompt from observation."""
     customer_msg = obs_dict.get("customer_message", "")
     sentiment = obs_dict.get("customer_sentiment", "calm")
     tool_result = obs_dict.get("tool_result")
@@ -167,16 +101,14 @@ def build_user_prompt(obs_dict: Dict[str, Any]) -> str:
     verified_facts = obs_dict.get("verified_facts", {})
     steps_remaining = obs_dict.get("steps_remaining", 0)
 
-    # Last few turns of conversation history
     history = obs_dict.get("conversation_history", [])
     history_lines = []
-    for turn in history[-6:]:  # last 6 turns
+    for turn in history[-6:]:
         role = turn.get("role", "?").upper()
         content = turn.get("content", "")[:200]
         history_lines.append(f"  [{role}]: {content}")
     history_block = "\n".join(history_lines) if history_lines else "  (no history)"
 
-    # Tool result block
     tool_block = ""
     if tool_result:
         tool_block = f"\nLAST TOOL RESULT:\n{json.dumps(tool_result, indent=2)}"
@@ -193,7 +125,7 @@ def build_user_prompt(obs_dict: Dict[str, Any]) -> str:
     CUSTOMER JUST SAID: "{customer_msg}"
 {tool_block}
 
-    VERIFIED FACTS SO FAR: {json.dumps(verified_facts) if verified_facts else "none yet"}
+    VERIFIED FACTS: {json.dumps(verified_facts) if verified_facts else "none"}
 
     What is your next action? Respond with ONLY a JSON object.
     """).strip()
@@ -201,138 +133,107 @@ def build_user_prompt(obs_dict: Dict[str, Any]) -> str:
     return prompt
 
 
-# ── LLM call ──────────────────────────────────────────────────────────────
-
-
 def get_agent_action(
     client: OpenAI,
     obs_dict: Dict[str, Any],
     conversation: List[Dict[str, str]],
 ) -> Dict[str, Any]:
-    """
-    Call the LLM and parse its JSON response into an action dict.
-    Falls back to send_message if JSON parsing fails.
-    """
+    """Call LLM and parse JSON action."""
     user_prompt = build_user_prompt(obs_dict)
-    conversation.append({"role": "user", "content": user_prompt})
-
+    
     try:
         completion = client.chat.completions.create(
             model=MODEL_NAME,
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + conversation,
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + conversation + [{"role": "user", "content": user_prompt}],
             temperature=TEMPERATURE,
             max_tokens=MAX_TOKENS,
+            stream=False,
         )
         raw = (completion.choices[0].message.content or "").strip()
+        conversation.append({"role": "user", "content": user_prompt})
         conversation.append({"role": "assistant", "content": raw})
 
-        # Strip markdown code fences if model wraps JSON in ```json ... ```
+        # Strip markdown fences
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
             raw = raw.strip()
 
-        action = json.loads(raw)
-        return action
+        return json.loads(raw)
 
     except json.JSONDecodeError:
-        # Model didn't return valid JSON — extract any text and send as message
-        fallback_msg = (
-            raw[:300] if raw else "I'm looking into your issue, please hold on."
-        )
-        return {"action_type": "send_message", "message": fallback_msg}
-
-    except Exception:
-        return {
-            "action_type": "send_message",
-            "message": "I'm sorry, please give me a moment.",
-        }
-
-
-# ── Main episode loop ──────────────────────────────────────────────────────
+        fallback = raw[:300] if raw else "I'm looking into your issue, please hold on."
+        return {"action_type": "send_message", "message": fallback}
+    except Exception as exc:
+        print(f"[DEBUG] Model error: {exc}", flush=True)
+        return {"action_type": "send_message", "message": "I'm sorry, please give me a moment."}
 
 
 def run_episode(env_url: str = "http://localhost:8000") -> None:
-    """
-    Run one full support episode against the ShopEasy environment server.
-
-    Connects to the env via HTTP (REST API), runs until done or max steps,
-    and prints [START]/[STEP]/[END] logs to stdout.
-    """
+    """Run one episode."""
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
     success = False
-    conversation: List[Dict[str, str]] = []  # LLM multi-turn memory
+    conversation: List[Dict[str, str]] = []
 
     task_id = TASK_ID or None
     difficulty = DIFFICULTY or None
 
+    log_start(task=task_id or "default", env=BENCHMARK, model=MODEL_NAME)
+
     try:
         with CustomerSupportGym2Env(base_url=env_url).sync() as env:
-            reset_result = env.reset(task_id=task_id, difficulty=difficulty)
-            obs_model = reset_result.observation
+            result = env.reset(task_id=task_id, difficulty=difficulty)
+            obs_model = result.observation
             obs = obs_model.model_dump()
             actual_task = obs.get("task_id", task_id or "unknown")
             max_steps = obs.get("max_steps", MAX_STEPS)
 
-            log_start(task=actual_task, env=BENCHMARK, model=MODEL_NAME)
+            if actual_task != (task_id or "default"):
+                log_start(task=actual_task, env=BENCHMARK, model=MODEL_NAME)
 
             for step in range(1, max_steps + 1):
-                if reset_result.done and step == 1:
+                if result.done:
                     break
 
                 action_dict = get_agent_action(client, obs, conversation)
                 action_str = json.dumps(action_dict)
 
                 try:
-                    step_result = env.step(SupportAction.model_validate(action_dict))
+                    result = env.step(SupportAction.model_validate(action_dict))
                 except Exception as exc:
-                    log_step(
-                        step=step,
-                        action=action_str,
-                        reward=0.00,  # Use 0.00 for error steps
-                        done=True,
-                        error=str(exc),
-                    )
+                    log_step(step=step, action=action_str, reward=0.00, done=True, error=str(exc))
                     break
 
-                obs_model = step_result.observation
+                obs_model = result.observation
                 obs = obs_model.model_dump()
-                # For intermediate steps, use raw reward (will be shown as-is)
-                # Only clamp for logging if you want, but spec says intermediate can be anything
-                reward = float(step_result.reward)
-                done = bool(step_result.done)
+                reward = float(result.reward or 0.0)
+                done = bool(result.done)
                 error = obs.get("tool_error")
 
                 rewards.append(reward)
                 steps_taken = step
 
-                log_step(
-                    step=step, action=action_str, reward=reward, done=done, error=error
-                )
+                log_step(step=step, action=action_str, reward=reward, done=done, error=error)
 
                 if done:
-                    score = reward  # Use final reward from env
-                    success = score >= SUCCESS_SCORE_THRESHOLD
                     break
 
+            # Use final reward from environment as score
+            score = rewards[-1] if rewards else 0.0
+            success = score >= SUCCESS_SCORE_THRESHOLD
+
     except Exception as exc:
-        sys.stderr.write(f"[ERROR] Failed to connect to env at {env_url}: {exc}\n")
-        sys.stderr.write(
-            "[ERROR] Is the server running? Start with: uv run server or uvicorn server.app:app --port 8000\n"
-        )
-        sys.exit(1)
+        print(f"[DEBUG] Environment error: {exc}", flush=True)
     finally:
-        # Final safety clamp — ensures score is never exactly 0.0 or 1.0.
-        score = clamp_score(score)
-        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+        final_score = clamp_score(score)
+        final_success = final_score >= SUCCESS_SCORE_THRESHOLD
+        log_end(success=final_success, steps=steps_taken, score=final_score, rewards=rewards)
 
-
-# ── Entry point ────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     env_url = os.getenv("ENV_URL", "http://localhost:8000")
