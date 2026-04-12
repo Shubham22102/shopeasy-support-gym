@@ -1,138 +1,61 @@
-spec_version: 1
-name: shopeasy-support-gym
-version: 1.0.0
-description: |
-  A high-fidelity Customer Support Resolution Gym simulating an e-commerce platform's
-  helpdesk. AI agents handle multi-turn customer conversations, resolve real-world 
-  issues across 12 distinct scenarios, and utilize tools like order lookup, refunds, 
-  and escalations, while managing customer sentiment and fraud risks.
-author: "Shubham Kumar"
-type: space
-runtime: fastapi
-app: server.app:app
-port: 8000
+name: "shopeasy-support-gym"
+version: "1.0.0"
+description: "E-commerce customer support environment"
 
-observation_space:
-  type: text
-  description: >
-    Natural language customer support conversation including customer messages,
-    ticket context, order details, and available tool outputs.
-
-action_space:
-  type: discrete
-  actions:
-    - resolve
-    - escalate
-    - refund
-    - search_kb
-    - lookup_order
-    - hold
-  description: >
-    Customer support actions for handling tickets.
-
-endpoints:
-  health: /
-  reset:  /reset
-  step:   /step
-  state:  /state
-  # REMOVED: grade: /grader (create_app provides this)
+runtime:
+  entrypoint: "server.app:app"
+  type: "fastapi"
+  port: 8000
 
 tasks:
-  - id: simple_refund
-    grader: "reward.grader:TaskGrader"
-    description: "Easy: Customer wants a refund within the return window."
-    difficulty: easy
-    steps: 3
-    ideal_action: refund
+  - id: "task_product_query"
+    name: "Product Availability Query"
+    description: "Handle customer asking about product availability"
+    input:
+      type: "chat"
+      message: "Is the Samsung Galaxy S24 available in blue color?"
+    grader:
+      type: "contains"
+      expected: ["samsung", "galaxy", "s24", "blue", "available", "stock"]
+      threshold: 0.3
+      partial_credit: true
 
-  - id: delivery_tracking
-    grader: "reward.grader:TaskGrader"
-    description: "Easy: Customer asks where their order is."
-    difficulty: easy
-    steps: 3
-    ideal_action: lookup_order
+  - id: "task_order_tracking"
+    name: "Order Tracking Request"
+    description: "Help customer track their order"
+    input:
+      type: "chat"
+      message: "Can you help me track order SHP-98765?"
+    grader:
+      type: "similar"
+      expected: "I'll help you track order SHP-98765. Let me check the status for you."
+      threshold: 0.2
 
-  - id: kb_policy_question
-    grader: "reward.grader:TaskGrader"
-    description: "Easy: Customer asks about return policy."
-    difficulty: easy
-    steps: 3
-    ideal_action: search_kb
+  - id: "task_return_policy"
+    name: "Return Policy Inquiry"
+    description: "Explain return policy to customer"
+    input:
+      type: "chat"
+      message: "What's your return policy for electronics?"
+    grader:
+      type: "contains"
+      expected: ["return", "days", "refund", "condition", "electronics"]
+      threshold: 0.4
+      partial_credit: true
 
-  # Other tasks without grader field...
+  - id: "task_payment_issue"
+    name: "Payment Failure Help"
+    description: "Assist with payment failure issue"
+    input:
+      type: "chat"
+      message: "My payment failed but money was deducted from my account"
+    grader:
+      type: "llm_judge"
+      rubric: "Score 0.3-0.8 based on: acknowledges payment issue, explains refund timeline, offers alternative payment. Never return 0 or 1."
+      threshold: 0.15
 
-  - id: cancellation_request
-    description: "Easy: Customer wants to cancel a pending order."
-    difficulty: easy
-    steps: 3
-    ideal_action: resolve
-
-  - id: expired_return
-    description: "Medium: Return request outside the policy window."
-    difficulty: medium
-    steps: 3
-    ideal_action: search_kb
-
-  - id: wrong_item_sent
-    description: "Medium: Customer received incorrect product."
-    difficulty: medium
-    steps: 3
-    ideal_action: refund
-
-  - id: duplicate_charge
-    description: "Medium: Customer was charged twice."
-    difficulty: medium
-    steps: 3
-    ideal_action: refund
-
-  - id: partial_order
-    description: "Medium: Customer only received part of their order."
-    difficulty: medium
-    steps: 3
-    ideal_action: refund
-
-  - id: damaged_item
-    description: "Hard: Item arrived broken — instant refund policy applies."
-    difficulty: hard
-    steps: 3
-    ideal_action: refund
-
-  - id: angry_customer
-    description: "Hard: Extremely angry customer, agent must de-escalate."
-    difficulty: hard
-    steps: 3
-    ideal_action: resolve
-
-  - id: fraud_risk
-    description: "Hard: Suspicious request must be escalated, not refunded."
-    difficulty: hard
-    steps: 3
-    ideal_action: escalate
-
-  - id: vip_warranty_claim
-    description: "Hard: VIP customer warranty claim for electronics."
-    difficulty: hard
-    steps: 3
-    ideal_action: resolve
-
-scoring:
-  reward_range: [0.0, 1.0]  # Changed from [0.01, 0.99]
-  success_threshold: 0.5
-  score_formula: mean(step_rewards)
-
-constraints:
-  max_runtime_seconds: 1200
-  max_memory_gb: 8
-  max_vcpu: 2
-
-env_vars:
-  - API_BASE_URL
-  - MODEL_NAME
-  - HF_TOKEN
-  - OPENAI_API_KEY
-  - DEFAULT_TASK_ID
-  - DEFAULT_DIFFICULTY
-
-resources:
-  cpu: 2
-  memory: 8Gi
+metadata:
+  min_tasks: 3
+  score_range:
+    min: 0.01
+    max: 0.99
