@@ -9,22 +9,14 @@ runtime:
 
 tasks:
   - id: "simple_refund"
-    name: "Simple Refund"
-    difficulty: "easy"
-    grader: "reward.grader:grade"
-
+    grader: "tasks:grade"
   - id: "delivery_tracking"
-    name: "Delivery Tracking"
-    difficulty: "easy"
-    grader: "reward.grader:grade"
-
+    grader: "tasks:grade"
   - id: "fraud_risk"
-    name: "Fraud Risk Handling"
-    difficulty: "hard"
-    grader: "reward.grader:grade"
+    grader: "tasks:grade"
 
 metadata:
   min_tasks: 3
   score_range:
     min: 0.10
-    max: 0.99
+    max: 0.90
