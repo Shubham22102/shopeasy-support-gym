@@ -1,4 +1,9 @@
 # reward/__init__.py
-from .grader import TaskGrader, grade, get_task_graders
 
-__all__ = ["TaskGrader", "grade", "get_task_graders"]
+from reward.grader import grade, get_task_graders, TaskGrader
+
+__all__ = [
+    "grade",
+    "get_task_graders",
+    "TaskGrader"
+]

@@ -1,61 +1,42 @@
 name: "shopeasy-support-gym"
 version: "1.0.0"
-description: "E-commerce customer support environment"
+description: "ShopEasy Customer Support Resolution Gym"
 
 runtime:
   entrypoint: "server.app:app"
   type: "fastapi"
   port: 8000
 
+# We declare the EXACT task IDs that match get_task_graders() in grader.py
+# By omitting the 'grader: type: ...' block, OpenEnv defers to your Python TaskGrader
 tasks:
-  - id: "task_product_query"
-    name: "Product Availability Query"
-    description: "Handle customer asking about product availability"
-    input:
-      type: "chat"
-      message: "Is the Samsung Galaxy S24 available in blue color?"
-    grader:
-      type: "contains"
-      expected: ["samsung", "galaxy", "s24", "blue", "available", "stock"]
-      threshold: 0.3
-      partial_credit: true
-
-  - id: "task_order_tracking"
-    name: "Order Tracking Request"
-    description: "Help customer track their order"
-    input:
-      type: "chat"
-      message: "Can you help me track order SHP-98765?"
-    grader:
-      type: "similar"
-      expected: "I'll help you track order SHP-98765. Let me check the status for you."
-      threshold: 0.2
-
-  - id: "task_return_policy"
-    name: "Return Policy Inquiry"
-    description: "Explain return policy to customer"
-    input:
-      type: "chat"
-      message: "What's your return policy for electronics?"
-    grader:
-      type: "contains"
-      expected: ["return", "days", "refund", "condition", "electronics"]
-      threshold: 0.4
-      partial_credit: true
-
-  - id: "task_payment_issue"
-    name: "Payment Failure Help"
-    description: "Assist with payment failure issue"
-    input:
-      type: "chat"
-      message: "My payment failed but money was deducted from my account"
-    grader:
-      type: "llm_judge"
-      rubric: "Score 0.3-0.8 based on: acknowledges payment issue, explains refund timeline, offers alternative payment. Never return 0 or 1."
-      threshold: 0.15
+  - id: "simple_refund"
+    name: "Simple Refund"
+  - id: "delivery_tracking"
+    name: "Delivery Tracking"
+  - id: "kb_policy_question"
+    name: "Policy Question"
+  - id: "cancellation_request"
+    name: "Cancellation Request"
+  - id: "expired_return"
+    name: "Expired Return"
+  - id: "wrong_item_sent"
+    name: "Wrong Item"
+  - id: "duplicate_charge"
+    name: "Duplicate Charge"
+  - id: "partial_order"
+    name: "Partial Order"
+  - id: "damaged_item"
+    name: "Damaged Item"
+  - id: "angry_customer"
+    name: "Angry Customer De-escalation"
+  - id: "fraud_risk"
+    name: "Fraud Risk Handling"
+  - id: "vip_warranty_claim"
+    name: "VIP Warranty Claim"
 
 metadata:
   min_tasks: 3
   score_range:
-    min: 0.01
-    max: 0.99
+    min: 0.02
+    max: 0.98
