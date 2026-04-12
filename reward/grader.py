@@ -4,26 +4,39 @@ Hackathon-compatible task grader — fully self-contained.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict
 
-STRICT_SCORE_MIN = 0.02
-STRICT_SCORE_MAX = 0.98
+# ---------------------------------------------------------------------------
+# Constants - STRICT bounds to avoid any edge cases
+# ---------------------------------------------------------------------------
+
+STRICT_SCORE_MIN = 0.02  # Strictly greater than 0.0
+STRICT_SCORE_MAX = 0.98  # Strictly less than 1.0
 SCORE_RANGE = [STRICT_SCORE_MIN, STRICT_SCORE_MAX]
 
 OUTCOME_MAX = 0.60
 PROCESS_MAX = 0.30
 EFFICIENCY_MAX = 0.10
 
+# Tasks that require a knowledge-base search
 KB_REQUIRED_TASKS = {"expired_return", "kb_policy_question", "vip_warranty_claim", "warranty_claim"}
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 def _clamp(score: float) -> float:
-    """Clamp to open interval (0, 1)."""
+    """Clamp to the open interval (0, 1) required by hackathon validators."""
+    if score is None or (isinstance(score, float) and math.isnan(score)):
+        return STRICT_SCORE_MIN
     clamped = min(STRICT_SCORE_MAX, max(STRICT_SCORE_MIN, float(score)))
     return round(clamped, 3)
 
 
 def _compute_efficiency(step_count: int, max_steps: int) -> float:
+    """Compute efficiency bonus based on steps used."""
     if max_steps <= 0:
         return 0.0
     steps_used_ratio = step_count / max_steps
@@ -31,15 +44,21 @@ def _compute_efficiency(step_count: int, max_steps: int) -> float:
 
 
 def _compute_process(order: Dict[str, Any], task_id: str, facts: Dict[str, Any]) -> float:
+    """Compute process score based on tool usage and policy compliance."""
     score = 0.0
+
     if facts.get("order_looked_up"):
         score += 0.10
+
     if task_id in KB_REQUIRED_TASKS and facts.get("kb_searched"):
         score += 0.05
-    
+
     if order:
+        # Penalty: refunded a fraud-risk order
         if facts.get("refund_processed") and order.get("is_fraud_risk"):
             score -= 0.10
+
+        # Penalty: full refund outside return window on expired_return task
         if (
             facts.get("refund_processed")
             and not order.get("is_damaged")
@@ -49,18 +68,22 @@ def _compute_process(order: Dict[str, Any], task_id: str, facts: Dict[str, Any])
             and task_id == "expired_return"
         ):
             score -= 0.05
+
+        # Bonus: correctly escalated fraud risk
         if (
             order.get("is_fraud_risk")
             and facts.get("escalated")
             and not facts.get("refund_processed")
         ):
             score += 0.15
+
+        # Bonus: duplicate charge — payment verified before refund
         if task_id == "duplicate_charge":
             if facts.get("payment_checked") and facts.get("refund_processed"):
                 score += 0.10
             elif facts.get("refund_processed") and not facts.get("payment_checked"):
                 score -= 0.05
-    
+
     return max(0.0, min(PROCESS_MAX, score))
 
 
@@ -72,6 +95,7 @@ def _compute_outcome(
     customer_mood: float,
     agent_sent_messages: bool,
 ) -> float:
+    """Compute outcome score based on task-specific success criteria."""
     if resolution == "timeout":
         return 0.05
 
@@ -92,6 +116,7 @@ def _compute_outcome(
             base = 0.10
         else:
             base = 0.40
+
     elif task_id == "delivery_tracking":
         if facts.get("order_looked_up") and resolution == "resolved":
             base = 1.0
@@ -99,16 +124,19 @@ def _compute_outcome(
             base = 0.0
         else:
             base = 0.20
+
     elif task_id == "kb_policy_question":
         if resolution == "resolved":
             base = 1.0
         else:
             base = 0.20
+
     elif task_id == "cancellation_request":
         if facts.get("order_looked_up") and resolution == "resolved":
             base = 1.0
         else:
             base = 0.20
+
     elif task_id == "expired_return":
         if facts.get("refund_processed") and not (order or {}).get("within_return_window"):
             base = -0.20
@@ -116,11 +144,13 @@ def _compute_outcome(
             base = 0.90
         else:
             base = 0.20
+
     elif task_id == "wrong_item_sent":
         if facts.get("refund_processed") and resolution == "resolved":
             base = 1.0
         else:
             base = 0.10
+
     elif task_id == "duplicate_charge":
         if facts.get("payment_checked") and facts.get("refund_processed"):
             base = 1.0
@@ -128,11 +158,13 @@ def _compute_outcome(
             base = 0.35
         else:
             base = 0.10
+
     elif task_id == "partial_order":
         if facts.get("refund_processed") and resolution == "resolved":
             base = 1.0
         else:
             base = 0.20
+
     elif task_id == "damaged_item":
         if facts.get("refund_processed") and (order or {}).get("is_damaged") and resolution == "resolved":
             base = 1.0
@@ -140,6 +172,7 @@ def _compute_outcome(
             base = -0.10
         else:
             base = 0.10
+
     elif task_id == "angry_customer":
         if facts.get("order_looked_up") and resolution == "resolved" and not facts.get("escalated"):
             base = 1.0
@@ -147,6 +180,7 @@ def _compute_outcome(
             base = 0.30
         else:
             base = 0.10
+
     elif task_id == "fraud_risk":
         if facts.get("escalated") and not facts.get("refund_processed"):
             base = 1.0
@@ -154,6 +188,7 @@ def _compute_outcome(
             base = -0.30
         else:
             base = 0.0
+
     elif task_id == "vip_warranty_claim":
         base = 0.0
         if facts.get("order_looked_up") and facts.get("is_vip"):
@@ -162,7 +197,9 @@ def _compute_outcome(
             base += 0.30
         if facts.get("order_looked_up") and (order or {}).get("has_warranty") and resolution == "resolved":
             base += 0.55
+
     else:
+        # Generic fallback
         base = 1.0 if resolution == "resolved" else 0.3
 
     raw = max(0.0, base) * OUTCOME_MAX + mood_bonus
@@ -179,6 +216,7 @@ def _score_task(
     customer_mood: float,
     agent_sent_messages: bool,
 ) -> float:
+    """Calculate total raw score for a task."""
     r_outcome = _compute_outcome(order, task_id, facts, resolution, customer_mood, agent_sent_messages)
     r_process = _compute_process(order, task_id, facts)
     r_efficiency = _compute_efficiency(step_count, max_steps)
@@ -186,7 +224,21 @@ def _score_task(
     return max(0.0, min(1.0, total))
 
 
+# ---------------------------------------------------------------------------
+# Public API — TaskGrader class expected by the hackathon validator
+# ---------------------------------------------------------------------------
+
 class TaskGrader:
+    """
+    Hackathon-compatible grader.
+    
+    The validator calls:
+        grader = TaskGrader()
+        score, info = grader.grade(task_id=..., world_state={...})
+    
+    The score is always strictly inside (0, 1).
+    """
+
     def __init__(self, default_task_id: str | None = None) -> None:
         self.default_task_id = default_task_id
 
@@ -197,7 +249,9 @@ class TaskGrader:
         **kwargs: Any,
     ) -> tuple[float, dict]:
         """
-        Returns (score, info_dict) - plain tuple, NOT a dataclass.
+        Grade the task. Returns (score, info_dict) for validator compatibility.
+        
+        CRITICAL: Must return exactly 2 items: (float, dict)
         """
         state = world_state or {}
 
@@ -245,7 +299,7 @@ class TaskGrader:
         score = _clamp(raw_score)
         passed = score >= 0.5
 
-        # Return plain tuple (score, info) - NOT a dataclass!
+        # Return plain tuple (score, info_dict) - NOT a dataclass!
         info = {
             "task_id": task,
             "score": score,
@@ -256,6 +310,10 @@ class TaskGrader:
         return score, info
 
 
+# ---------------------------------------------------------------------------
+# Module-level grader discovery — validators call get_task_graders()
+# ---------------------------------------------------------------------------
+
 _default_grader = TaskGrader()
 
 
@@ -264,15 +322,27 @@ def grade(
     world_state: Dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> tuple[float, dict]:
-    """Module-level grade function."""
+    """Module-level grade function that returns plain tuple."""
     return _default_grader.grade(task_id=task_id, world_state=world_state, **kwargs)
 
 
 def get_task_graders() -> Dict[str, Any]:
-    """Return a per-task grader mapping for validator discovery."""
+    """
+    Return a per-task grader mapping for validator discovery.
+    This function is REQUIRED for auto-discovery to work.
+    """
     TASK_IDS = [
-        "simple_refund", "delivery_tracking", "kb_policy_question", "cancellation_request",
-        "expired_return", "wrong_item_sent", "duplicate_charge", "partial_order",
-        "damaged_item", "angry_customer", "fraud_risk", "vip_warranty_claim",
+        "simple_refund",
+        "delivery_tracking",
+        "kb_policy_question",
+        "cancellation_request",
+        "expired_return",
+        "wrong_item_sent",
+        "duplicate_charge",
+        "partial_order",
+        "damaged_item",
+        "angry_customer",
+        "fraud_risk",
+        "vip_warranty_claim",
     ]
     return {tid: TaskGrader(default_task_id=tid) for tid in TASK_IDS}

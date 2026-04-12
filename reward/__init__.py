@@ -1,5 +1,4 @@
-"""Compatibility reward package for hackathon grader discovery."""
+# reward/__init__.py
+from .grader import TaskGrader, grade, get_task_graders
 
-from .grader import TaskGrader
-
-__all__ = ["TaskGrader"]
+__all__ = ["TaskGrader", "grade", "get_task_graders"]

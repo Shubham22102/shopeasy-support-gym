@@ -39,23 +39,27 @@ endpoints:
 
 tasks:
   - id: simple_refund
-    # REMOVED: grader field
+    grader: "reward.grader:TaskGrader"
     description: "Easy: Customer wants a refund within the return window."
     difficulty: easy
     steps: 3
     ideal_action: refund
 
   - id: delivery_tracking
+    grader: "reward.grader:TaskGrader"
     description: "Easy: Customer asks where their order is."
     difficulty: easy
     steps: 3
     ideal_action: lookup_order
 
   - id: kb_policy_question
+    grader: "reward.grader:TaskGrader"
     description: "Easy: Customer asks about return policy."
     difficulty: easy
     steps: 3
     ideal_action: search_kb
+
+  # Other tasks without grader field...
 
   - id: cancellation_request
     description: "Easy: Customer wants to cancel a pending order."
