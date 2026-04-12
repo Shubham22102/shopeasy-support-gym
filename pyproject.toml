@@ -9,17 +9,12 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "openenv-Customer_Support_Gym_2"
+name = "openenv-shopeasy-support"
 version = "0.1.0"
-description = "Customer Support Gym 2 environment for OpenEnv"
+description = "ShopEasy Customer Support Gym for OpenEnv"
 requires-python = ">=3.10"
 dependencies = [
-    # Core OpenEnv runtime (provides FastAPI server + HTTP client types)
     "openenv-core[core]>=0.2.2",
-    # .env file loading — reads API keys without hardcoding them
-    "python-dotenv>=1.0.0",
-    # OpenAI-compatible client used by inference.py
-    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -29,14 +24,13 @@ dev = [
 ]
 
 [project.scripts]
-# Server entry point - enables running via: uv run --project . server
-# or: python -m Customer_Support_Gym_2.server.app
-server = "Customer_Support_Gym_2.server.app:main"
+server = "shopeasy.server.app:main"
 
 [tool.setuptools]
 include-package-data = true
-packages = ["Customer_Support_Gym_2", "Customer_Support_Gym_2.server", "reward", "tasks"]
-package-dir = { "Customer_Support_Gym_2" = ".", "Customer_Support_Gym_2.server" = "server", "reward" = "reward", "tasks" = "tasks" }
+packages = ["shopeasy", "shopeasy.server"]
+package-dir = { "shopeasy" = ".", "shopeasy.server" = "server" }
+
 [tool.pyright]
 include = ["."]
 extraPaths = ["."]

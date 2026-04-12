@@ -35,95 +35,84 @@ endpoints:
   reset:  /reset
   step:   /step
   state:  /state
-  grade:  /grader
+  # REMOVED: grade: /grader (create_app provides this)
 
 tasks:
   - id: simple_refund
-    grader: "grader.support_tasks:SimpleRefundGrader"
+    # REMOVED: grader field
     description: "Easy: Customer wants a refund within the return window."
     difficulty: easy
     steps: 3
     ideal_action: refund
 
   - id: delivery_tracking
-    grader: "grader.support_tasks:DeliveryTrackingGrader"
     description: "Easy: Customer asks where their order is."
     difficulty: easy
     steps: 3
     ideal_action: lookup_order
 
   - id: kb_policy_question
-    grader: "grader.support_tasks:KbPolicyQuestionGrader"
     description: "Easy: Customer asks about return policy."
     difficulty: easy
     steps: 3
     ideal_action: search_kb
 
   - id: cancellation_request
-    grader: "grader.support_tasks:CancellationRequestGrader"
     description: "Easy: Customer wants to cancel a pending order."
     difficulty: easy
     steps: 3
     ideal_action: resolve
 
   - id: expired_return
-    grader: "grader.support_tasks:ExpiredReturnGrader"
     description: "Medium: Return request outside the policy window."
     difficulty: medium
     steps: 3
     ideal_action: search_kb
 
   - id: wrong_item_sent
-    grader: "grader.support_tasks:WrongItemSentGrader"
     description: "Medium: Customer received incorrect product."
     difficulty: medium
     steps: 3
     ideal_action: refund
 
   - id: duplicate_charge
-    grader: "grader.support_tasks:DuplicateChargeGrader"
     description: "Medium: Customer was charged twice."
     difficulty: medium
     steps: 3
     ideal_action: refund
 
   - id: partial_order
-    grader: "grader.support_tasks:PartialOrderGrader"
     description: "Medium: Customer only received part of their order."
     difficulty: medium
     steps: 3
     ideal_action: refund
 
   - id: damaged_item
-    grader: "grader.support_tasks:DamagedItemGrader"
     description: "Hard: Item arrived broken — instant refund policy applies."
     difficulty: hard
     steps: 3
     ideal_action: refund
 
   - id: angry_customer
-    grader: "grader.support_tasks:AngryCustomerGrader"
     description: "Hard: Extremely angry customer, agent must de-escalate."
     difficulty: hard
     steps: 3
     ideal_action: resolve
 
   - id: fraud_risk
-    grader: "grader.support_tasks:FraudRiskGrader"
     description: "Hard: Suspicious request must be escalated, not refunded."
     difficulty: hard
     steps: 3
     ideal_action: escalate
 
   - id: vip_warranty_claim
-    grader: "grader.support_tasks:VipWarrantyClaimGrader"
     description: "Hard: VIP customer warranty claim for electronics."
     difficulty: hard
     steps: 3
     ideal_action: resolve
 
 scoring:
-  reward_range: [0.01, 0.99]
+  reward_range: [0.0, 1.0]  # Changed from [0.01, 0.99]
   success_threshold: 0.5
   score_formula: mean(step_rewards)
 
