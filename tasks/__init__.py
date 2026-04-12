@@ -1,9 +1,10 @@
 """Task registry and grader exports for OpenEnv validation."""
 
-# Import your grading logic
+# Import the fully clamped grading logic from your reward engine
 from reward.grader import grade, get_task_graders, TaskGrader
 
-# THE FIX: Explicitly define the TASKS list here so the Python validator sees them
+# Explicitly define the baseline tasks here so the Python validator sees them.
+# The validator requires at least 3 to pass the pipeline.
 TASKS = [
     {
         "id": "simple_refund",
@@ -22,6 +23,7 @@ TASKS = [
     }
 ]
 
+# Export everything exactly as OpenEnv expects
 __all__ = [
     "TASKS",
     "grade",

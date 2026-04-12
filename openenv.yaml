@@ -7,21 +7,6 @@ runtime:
   type: "fastapi"
   port: 8000
 
-# Explicitly mapping the custom python grader
-tasks:
-  - id: "simple_refund"
-    grader:
-      type: "custom"
-      entrypoint: "reward.grader:grade"
-  - id: "delivery_tracking"
-    grader:
-      type: "custom"
-      entrypoint: "reward.grader:grade"
-  - id: "fraud_risk"
-    grader:
-      type: "custom"
-      entrypoint: "reward.grader:grade"
-
 metadata:
   min_tasks: 3
   score_range:
