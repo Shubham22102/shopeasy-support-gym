@@ -1,10 +1,29 @@
 """Task registry and grader exports for OpenEnv validation."""
 
-# Import the grading logic from your reward/grader.py file
+# Import your grading logic
 from reward.grader import grade, get_task_graders, TaskGrader
 
-# Explicitly export them so OpenEnv's auto-discovery can find them
+# THE FIX: Explicitly define the TASKS list here so the Python validator sees them
+TASKS = [
+    {
+        "id": "simple_refund",
+        "name": "Simple Refund",
+        "difficulty": "easy"
+    },
+    {
+        "id": "delivery_tracking",
+        "name": "Delivery Tracking",
+        "difficulty": "easy"
+    },
+    {
+        "id": "fraud_risk",
+        "name": "Fraud Risk Handling",
+        "difficulty": "hard"
+    }
+]
+
 __all__ = [
+    "TASKS",
     "grade",
     "get_task_graders",
     "TaskGrader"

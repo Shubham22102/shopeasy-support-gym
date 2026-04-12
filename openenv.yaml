@@ -7,33 +7,20 @@ runtime:
   type: "fastapi"
   port: 8000
 
-# We declare the EXACT task IDs that match get_task_graders() in grader.py
-# By omitting the 'grader: type: ...' block, OpenEnv defers to your Python TaskGrader
+# Explicitly mapping the custom python grader
 tasks:
   - id: "simple_refund"
-    name: "Simple Refund"
+    grader:
+      type: "custom"
+      entrypoint: "reward.grader:grade"
   - id: "delivery_tracking"
-    name: "Delivery Tracking"
-  - id: "kb_policy_question"
-    name: "Policy Question"
-  - id: "cancellation_request"
-    name: "Cancellation Request"
-  - id: "expired_return"
-    name: "Expired Return"
-  - id: "wrong_item_sent"
-    name: "Wrong Item"
-  - id: "duplicate_charge"
-    name: "Duplicate Charge"
-  - id: "partial_order"
-    name: "Partial Order"
-  - id: "damaged_item"
-    name: "Damaged Item"
-  - id: "angry_customer"
-    name: "Angry Customer De-escalation"
+    grader:
+      type: "custom"
+      entrypoint: "reward.grader:grade"
   - id: "fraud_risk"
-    name: "Fraud Risk Handling"
-  - id: "vip_warranty_claim"
-    name: "VIP Warranty Claim"
+    grader:
+      type: "custom"
+      entrypoint: "reward.grader:grade"
 
 metadata:
   min_tasks: 3
