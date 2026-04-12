@@ -1,9 +1,10 @@
-# reward/__init__.py
+"""Reward calculation and hackathon grading logic."""
 
-from reward.grader import grade, get_task_graders, TaskGrader
+# Export the hackathon validator functions from grader.py
+from .grader import TaskGrader, grade, get_task_graders
 
 __all__ = [
+    "TaskGrader",
     "grade",
-    "get_task_graders",
-    "TaskGrader"
+    "get_task_graders"
 ]
