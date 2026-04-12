@@ -9,12 +9,8 @@ from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
-try:
-    from Customer_Support_Gym_2.client import CustomerSupportGym2Env
-    from Customer_Support_Gym_2.models import SupportAction
-except ImportError:
-    from client import CustomerSupportGym2Env  # type: ignore
-    from models import SupportAction  # type: ignore
+from client import CustomerSupportGym2Env
+from models import SupportAction
 
 # Environment variables with defaults
 API_BASE_URL: str = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
