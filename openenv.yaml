@@ -7,8 +7,24 @@ runtime:
   type: "fastapi"
   port: 8000
 
+tasks:
+  - id: "simple_refund"
+    name: "Simple Refund"
+    difficulty: "easy"
+    grader: "reward.grader:grade"
+
+  - id: "delivery_tracking"
+    name: "Delivery Tracking"
+    difficulty: "easy"
+    grader: "reward.grader:grade"
+
+  - id: "fraud_risk"
+    name: "Fraud Risk Handling"
+    difficulty: "hard"
+    grader: "reward.grader:grade"
+
 metadata:
   min_tasks: 3
   score_range:
-    min: 0.02
-    max: 0.98
+    min: 0.10
+    max: 0.99

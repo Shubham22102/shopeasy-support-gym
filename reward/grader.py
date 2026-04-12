@@ -11,8 +11,8 @@ from typing import Any, Dict
 # Constants - STRICT bounds to avoid any edge cases
 # ---------------------------------------------------------------------------
 
-STRICT_SCORE_MIN = 0.02  # Strictly greater than 0.0
-STRICT_SCORE_MAX = 0.98  # Strictly less than 1.0
+STRICT_SCORE_MIN = 0.10  # Shifted to 0.10 to bypass backend precision bugs
+STRICT_SCORE_MAX = 0.99  # Strictly less than 1.0
 SCORE_RANGE = [STRICT_SCORE_MIN, STRICT_SCORE_MAX]
 
 OUTCOME_MAX = 0.60
